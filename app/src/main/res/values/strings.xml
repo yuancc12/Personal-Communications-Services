@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">詐騙簡訊偵測</string>
+    <string name="channel_name">詐騙警報</string>
+    <string name="channel_desc">偵測到高風險簡訊時發送通知</string>
+</resources>
