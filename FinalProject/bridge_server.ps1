@@ -1,45 +1,64 @@
-# SMS Bridge Server
-# 監聽 port 8765，收到 /alert 請求就把 SMS 注入家長模擬器 (emulator-5558)
+# SMS Bridge Server - TcpListener (compatible with Android emulator 10.0.2.2)
 
 $adb       = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 $parentDev = "emulator-5558"
-$port      = 8765
+$port      = 9876
 
-$listener = [System.Net.HttpListener]::new()
-$listener.Prefixes.Add("http://localhost:$port/")
-$listener.Start()
+$tcp = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $port)
+$tcp.Start()
 
-Write-Host "=== SMS Bridge Server 啟動 ===" -ForegroundColor Cyan
-Write-Host "監聽 http://localhost:$port/" -ForegroundColor Yellow
-Write-Host "家長模擬器：$parentDev" -ForegroundColor Yellow
-Write-Host "按 Ctrl+C 停止`n"
+Write-Host "=== SMS Bridge Server Started ===" -ForegroundColor Cyan
+Write-Host "Port: $port  |  Parent: $parentDev" -ForegroundColor Yellow
+Write-Host "Press Ctrl+C to stop`n"
 
-while ($listener.IsListening) {
-    $ctx = $listener.GetContext()
-    $req = $ctx.Request
-    $res = $ctx.Response
+while ($true) {
+    $client = $tcp.AcceptTcpClient()
+    $stream = $client.GetStream()
 
-    if ($req.Url.AbsolutePath -eq "/alert") {
-        $reader = [System.IO.StreamReader]::new($req.InputStream)
-        $body   = $reader.ReadToEnd()
-        $reader.Close()
+    try {
+        $bytes = New-Object byte[] 4096
+        $total = 0
+        $raw   = ""
+        do {
+            $n    = $stream.Read($bytes, 0, $bytes.Length)
+            $raw += [System.Text.Encoding]::UTF8.GetString($bytes, 0, $n)
+            $total += $n
+        } while ($stream.DataAvailable)
 
-        # body 格式: sender=XXX&message=YYY
-        $params  = [System.Web.HttpUtility]::ParseQueryString($body)
-        $sender  = $params["sender"]
-        $message = $params["message"]
+        $bodyStart = $raw.IndexOf("`r`n`r`n")
+        $body = if ($bodyStart -ge 0) { $raw.Substring($bodyStart + 4) } else { "" }
 
-        $alertText = "【詐騙警報】孩子收到詐騙簡訊！發件人：$sender，內容：$message"
+        $sender  = ""
+        $message = ""
+        foreach ($pair in $body -split "&") {
+            $kv = $pair -split "=", 2
+            if ($kv.Count -eq 2) {
+                $key = [System.Uri]::UnescapeDataString($kv[0].Trim())
+                $val = [System.Uri]::UnescapeDataString($kv[1].Trim().Replace("+", " "))
+                if ($key -eq "sender")  { $sender  = $val }
+                if ($key -eq "message") { $message = $val }
+            }
+        }
 
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 收到警報請求 → 發 SMS 給家長" -ForegroundColor Red
-        Write-Host "  發件人：$sender  |  內容：$message" -ForegroundColor White
+        if ($raw -match "POST /alert") {
+            $alertText = "Parent Alert: Your child received a high-risk SMS. Sender: $sender. Please check their phone."
 
-        & $adb -s $parentDev emu sms send "5556" $alertText
-        Write-Host "  OK 已注入家長模擬器" -ForegroundColor Green
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Alert -> parent emulator" -ForegroundColor Red
+            Write-Host "  Sender:  $sender"  -ForegroundColor White
+            Write-Host "  Message: $message" -ForegroundColor White
 
-        $resBytes = [System.Text.Encoding]::UTF8.GetBytes("OK")
-        $res.StatusCode = 200
-        $res.OutputStream.Write($resBytes, 0, $resBytes.Length)
+            & $adb -s $parentDev emu sms send "5556" $alertText
+
+            Write-Host "  OK`n" -ForegroundColor Green
+        }
+
+        $response = "HTTP/1.1 200 OK`r`nContent-Length: 2`r`nConnection: close`r`n`r`nOK"
+        $respBytes = [System.Text.Encoding]::UTF8.GetBytes($response)
+        $stream.Write($respBytes, 0, $respBytes.Length)
+        $stream.Flush()
+    } catch {
+        Write-Host "Error: $_" -ForegroundColor Red
+    } finally {
+        $client.Close()
     }
-    $res.Close()
 }

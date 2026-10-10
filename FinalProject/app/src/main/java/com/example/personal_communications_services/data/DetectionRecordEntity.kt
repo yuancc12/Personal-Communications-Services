@@ -9,5 +9,6 @@ data class DetectionRecordEntity(
     val reasons: String,       // 原因以 | 分隔
     val senderNumber: String,
     val timestamp: Long,
-    val source: String = "RULE"
+    val source: String = "RULE",
+    val scamType: String = ""  // ScamType.name，空字串表示未分類
 )

@@ -33,7 +33,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     val parentNumber by vm.parentNumber.collectAsStateWithLifecycle()
     val simStatus    by vm.simStatus.collectAsStateWithLifecycle()
     val scanStatus   by vm.scanStatus.collectAsStateWithLifecycle()
-    var parentInput  by remember { mutableStateOf(parentNumber) }
+    var parentInput  by remember(parentNumber) { mutableStateOf(parentNumber) }
 
     // 切換「自動監聽」時請求 RECEIVE_SMS 執行期權限
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -75,8 +75,8 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
         )
         HorizontalDivider()
         SettingRow(
-            title    = "啟用 AI 二次判斷",
-            subtitle = "灰色地帶（31–70 分）才呼叫 Claude API\n（需在 local.properties 設定 ANTHROPIC_API_KEY）",
+            title    = "啟用 JEV AI 判斷",
+            subtitle = "收到簡訊時呼叫 TypeSafe JEV 進行風險分類與詐騙類型識別\n（需在 local.properties 設定 TYPESAFE_API_KEY）",
             checked  = llmEnabled,
             onChange = vm::setLlmEnabled
         )

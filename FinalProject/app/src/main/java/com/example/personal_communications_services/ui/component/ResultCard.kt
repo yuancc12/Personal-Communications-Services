@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.example.personal_communications_services.model.DetectionResult
 import com.example.personal_communications_services.model.ResultSource
 import com.example.personal_communications_services.model.RiskLevel
+import com.example.personal_communications_services.model.ScamType
 
 @Composable
 fun ResultCard(result: DetectionResult, modifier: Modifier = Modifier) {
@@ -42,11 +43,14 @@ fun ResultCard(result: DetectionResult, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.Bold,
                     color = accent
                 )
-                Text(
-                    text = "評分 ${result.score} / 100",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = accent
-                )
+                if (result.confidence != null) {
+                    Text(
+                        text = "信心度 ${"%.0f".format(result.confidence * 100)}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent
+                    )
+                }
             }
 
             HorizontalDivider(color = accent.copy(alpha = 0.3f))
@@ -59,9 +63,18 @@ fun ResultCard(result: DetectionResult, modifier: Modifier = Modifier) {
                 }
             }
 
+            if (result.scamType != null && result.scamType != ScamType.NONE) {
+                Text(
+                    text = "${result.scamType.emoji} 類型：${result.scamType.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = accent
+                )
+            }
+
             if (result.source == ResultSource.LLM) {
                 Text(
-                    "🤖 已使用 AI 二次分析",
+                    "由 JEV 判斷",
                     style = MaterialTheme.typography.labelSmall,
                     color = accent.copy(alpha = 0.7f)
                 )

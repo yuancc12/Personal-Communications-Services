@@ -6,9 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.personal_communications_services.data.AppPreferences
 import com.example.personal_communications_services.data.DetectionRecordEntity
 import com.example.personal_communications_services.data.LocalStorage
-import com.example.personal_communications_services.engine.RuleEngine
 import com.example.personal_communications_services.llm.Deidentifier
-import com.example.personal_communications_services.llm.LlmClassifier
+import com.example.personal_communications_services.llm.JevClassifier
 import com.example.personal_communications_services.model.RiskLevel
 import com.example.personal_communications_services.notification.NotificationHelper
 import kotlinx.coroutines.Dispatchers
@@ -71,11 +70,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     val date   = it.getLong(dateIdx)
                     if (body.isBlank()) continue
 
-                    val ruleResult = RuleEngine.analyze(body)
-                    val final = if (llmEnabledVal && ruleResult.score in 31..70) {
-                        try { LlmClassifier().classify(body, ruleResult) }
-                        catch (_: Exception) { ruleResult }
-                    } else ruleResult
+                    val final = JevClassifier.instance.classify(body)
 
                     storage.insert(DetectionRecordEntity(
                         riskLevel    = final.riskLevel.name,
@@ -84,7 +79,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                         reasons      = final.reasons.joinToString("|"),
                         senderNumber = Deidentifier.deidentify(sender),
                         timestamp    = date,
-                        source       = final.source.name
+                        source       = final.source.name,
+                        scamType     = final.scamType?.name ?: ""
                     ))
                     count++
                 }
@@ -103,19 +99,14 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val fakeBody   = "【緊急通知】您的帳戶凍結，請點擊 bit.ly/verify000 立即領取並驗證，否則將永久停用。"
 
         val storage    = LocalStorage.getInstance(context)
-        val ruleResult = RuleEngine.analyze(fakeBody)
-        val llmEnabled = prefs.llmEnabled.first()
-        val afterLlm   = if (llmEnabled && ruleResult.score in 31..70) {
-            try { LlmClassifier().classify(fakeBody, ruleResult) }
-            catch (_: Exception) { ruleResult }
-        } else ruleResult
+        val afterJev = JevClassifier.instance.classify(fakeBody)
 
         val blacklisted = storage.isBlacklisted(fakeSender)
-        val final = if (blacklisted) afterLlm.copy(
+        val final = if (blacklisted) afterJev.copy(
             score     = 100,
             riskLevel = RiskLevel.HIGH_RISK,
-            reasons   = listOf("📵 號碼在黑名單中") + afterLlm.reasons
-        ) else afterLlm
+            reasons   = listOf("📵 號碼在黑名單中") + afterJev.reasons
+        ) else afterJev
 
         val saveFullBody = prefs.saveFullBody.first()
         storage.insert(DetectionRecordEntity(
@@ -125,7 +116,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             reasons      = final.reasons.joinToString("|"),
             senderNumber = Deidentifier.deidentify(fakeSender),
             timestamp    = System.currentTimeMillis(),
-            source       = final.source.name
+            source       = final.source.name,
+            scamType     = final.scamType?.name ?: ""
         ))
 
         if (final.riskLevel == RiskLevel.HIGH_RISK) {
@@ -138,7 +130,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             if (notifyParent) {
                 withContext(Dispatchers.IO) {
                     try {
-                        val url  = java.net.URL("http://10.0.2.2:8765/alert")
+                        val url  = java.net.URL("http://10.0.2.2:9876/alert")
                         val conn = url.openConnection() as java.net.HttpURLConnection
                         conn.requestMethod = "POST"
                         conn.doOutput      = true

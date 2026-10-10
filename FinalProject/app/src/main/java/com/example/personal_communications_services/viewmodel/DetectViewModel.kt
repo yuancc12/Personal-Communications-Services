@@ -6,8 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.personal_communications_services.data.AppPreferences
 import com.example.personal_communications_services.data.DetectionRecordEntity
 import com.example.personal_communications_services.data.LocalStorage
-import com.example.personal_communications_services.engine.RuleEngine
-import com.example.personal_communications_services.llm.LlmClassifier
+import com.example.personal_communications_services.llm.JevClassifier
 import com.example.personal_communications_services.model.DetectionResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,13 +30,12 @@ class DetectViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _isLoading.value = true
 
-            val ruleResult = RuleEngine.analyze(message)
-            val llmEnabled = prefs.llmEnabled.first()
+            // ── 規則引擎已暫停，改由 JEV 統一判斷 ──
+            // val ruleResult = RuleEngine.analyze(message)
+            // val llmEnabled = prefs.llmEnabled.first()
+            // val final = if (llmEnabled && ruleResult.score in 31..70) { ... }
 
-            val final = if (llmEnabled && ruleResult.score in 31..70) {
-                try { LlmClassifier().classify(message, ruleResult) }
-                catch (_: Exception) { ruleResult }
-            } else ruleResult
+            val final = JevClassifier.instance.classify(message)
 
             _result.value = final
             _isLoading.value = false
@@ -51,7 +49,8 @@ class DetectViewModel(app: Application) : AndroidViewModel(app) {
                     reasons      = final.reasons.joinToString("|"),
                     senderNumber = "手動輸入",
                     timestamp    = System.currentTimeMillis(),
-                    source       = final.source.name
+                    source       = final.source.name,
+                    scamType     = final.scamType?.name ?: ""
                 )
             )
         }

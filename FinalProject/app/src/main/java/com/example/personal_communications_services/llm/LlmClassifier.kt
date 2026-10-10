@@ -30,7 +30,8 @@ class LlmClassifier : ScamClassifier {
         .build()
     private val gson = Gson()
 
-    override suspend fun classify(message: String, ruleResult: DetectionResult): DetectionResult {
+    override suspend fun classify(message: String): DetectionResult {
+        val ruleResult = DetectionResult(score = 0, riskLevel = RiskLevel.SUSPICIOUS, reasons = emptyList())
         val apiKey = BuildConfig.ANTHROPIC_API_KEY
         if (apiKey.isBlank()) return ruleResult
 

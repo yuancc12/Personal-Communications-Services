@@ -1,6 +1,7 @@
 package com.example.personal_communications_services.engine
 
 import com.example.personal_communications_services.model.DetectionResult
+import com.example.personal_communications_services.model.RiskLevel
 import com.example.personal_communications_services.model.toRiskLevel
 
 /**
@@ -63,7 +64,10 @@ object RuleEngine {
 
     // ────────────────────────────────────────────────────────────────────
 
+    // ── 規則引擎已暫停，改由 JEV 統一判斷 ──────────────────────────────
+    @Suppress("unused")
     fun analyze(message: String): DetectionResult {
+        /*
         val reasons = mutableListOf<String>()
         var score = 0
 
@@ -79,6 +83,8 @@ object RuleEngine {
             riskLevel = finalScore.toRiskLevel(),
             reasons = reasons
         )
+        */
+        return DetectionResult(score = 0, riskLevel = RiskLevel.SAFE, reasons = emptyList())
     }
 
     // ── 規則1 ────────────────────────────────────────────────────────────

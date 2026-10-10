@@ -33,6 +33,11 @@ android {
             "ANTHROPIC_API_KEY",
             "\"${localProperties.getProperty("ANTHROPIC_API_KEY", "")}\""
         )
+        buildConfigField(
+            "String",
+            "TYPESAFE_API_KEY",
+            "\"${localProperties.getProperty("TYPESAFE_API_KEY", "")}\""
+        )
     }
 
     buildTypes {

@@ -8,9 +8,8 @@ import android.util.Log
 import com.example.personal_communications_services.data.AppPreferences
 import com.example.personal_communications_services.data.DetectionRecordEntity
 import com.example.personal_communications_services.data.LocalStorage
-import com.example.personal_communications_services.engine.RuleEngine
 import com.example.personal_communications_services.llm.Deidentifier
-import com.example.personal_communications_services.llm.LlmClassifier
+import com.example.personal_communications_services.llm.JevClassifier
 import com.example.personal_communications_services.model.RiskLevel
 import com.example.personal_communications_services.notification.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
@@ -39,19 +38,14 @@ class SmsReceiver : BroadcastReceiver() {
 
                 val storage     = LocalStorage.getInstance(context)
                 val blacklisted = storage.isBlacklisted(sender)
-                val ruleResult  = RuleEngine.analyze(body)
 
-                val llmEnabled = prefs.llmEnabled.first()
-                val afterLlm   = if (llmEnabled && ruleResult.score in 31..70) {
-                    try { LlmClassifier().classify(body, ruleResult) }
-                    catch (_: Exception) { ruleResult }
-                } else ruleResult
+                val afterJev = JevClassifier.instance.classify(body)
 
-                val final = if (blacklisted) afterLlm.copy(
+                val final = if (blacklisted) afterJev.copy(
                     score     = 100,
                     riskLevel = RiskLevel.HIGH_RISK,
-                    reasons   = listOf("📵 號碼在黑名單中") + afterLlm.reasons
-                ) else afterLlm
+                    reasons   = listOf("📵 號碼在黑名單中") + afterJev.reasons
+                ) else afterJev
 
                 Log.d("SmsReceiver", "分析完成 riskLevel=${final.riskLevel} score=${final.score}")
 
@@ -64,7 +58,8 @@ class SmsReceiver : BroadcastReceiver() {
                         reasons      = final.reasons.joinToString("|"),
                         senderNumber = Deidentifier.deidentify(sender),
                         timestamp    = System.currentTimeMillis(),
-                        source       = final.source.name
+                        source       = final.source.name,
+                        scamType     = final.scamType?.name ?: ""
                     )
                 )
 
@@ -79,7 +74,7 @@ class SmsReceiver : BroadcastReceiver() {
                     val notifyParent = prefs.notifyParent.first()
                     if (notifyParent) {
                         try {
-                            val url  = java.net.URL("http://10.0.2.2:8765/alert")
+                            val url  = java.net.URL("http://10.0.2.2:9876/alert")
                             val conn = url.openConnection() as java.net.HttpURLConnection
                             conn.requestMethod = "POST"
                             conn.doOutput      = true
