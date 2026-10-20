@@ -34,7 +34,11 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
+    val geminiKey = project.findProperty("GEMINI_API_KEY")?.toString() ?: ""
+    defaultConfig.buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
 }
 
 dependencies {
@@ -55,6 +59,7 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.coroutines.play)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.generativeai)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

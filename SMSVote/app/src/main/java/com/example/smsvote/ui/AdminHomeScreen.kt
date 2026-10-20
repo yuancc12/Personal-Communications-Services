@@ -77,6 +77,7 @@ fun AdminHomeScreen(
     onManageRoles: () -> Unit,
     onSendSms: (Poll) -> Unit,
     onDeletePoll: (String) -> Unit,
+    onViewResults: (Poll) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var activeTab by remember { mutableStateOf(HomeTab.POLLS) }
@@ -131,6 +132,7 @@ fun AdminHomeScreen(
                 polls = polls,
                 onSendSms = onSendSms,
                 onDelete = { deleteTarget = it },
+                onViewResults = onViewResults,
                 modifier = Modifier.padding(innerPadding)
             )
             HomeTab.CONTACTS -> ManageRecipientsScreen(
@@ -169,6 +171,7 @@ private fun PollsTabContent(
     polls: List<Poll>,
     onSendSms: (Poll) -> Unit,
     onDelete: (Poll) -> Unit,
+    onViewResults: (Poll) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (polls.isEmpty()) {
@@ -188,14 +191,19 @@ private fun PollsTabContent(
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             items(polls, key = { it.id }) { poll ->
-                PollCard(poll = poll, onSendSms = { onSendSms(poll) }, onDelete = { onDelete(poll) })
+                PollCard(
+                    poll = poll,
+                    onSendSms = { onSendSms(poll) },
+                    onDelete = { onDelete(poll) },
+                    onViewResults = { onViewResults(poll) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PollCard(poll: Poll, onSendSms: () -> Unit, onDelete: () -> Unit) {
+private fun PollCard(poll: Poll, onSendSms: () -> Unit, onDelete: () -> Unit, onViewResults: () -> Unit) {
     val isExpired = poll.endTime != null && System.currentTimeMillis() > poll.endTime
     val dateFormat = remember { SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()) }
 
@@ -258,6 +266,11 @@ private fun PollCard(poll: Poll, onSendSms: () -> Unit, onDelete: () -> Unit) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(
+                    onClick = onViewResults,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) { Text("查看結果") }
                 FilledTonalButton(
                     onClick = onSendSms,
                     modifier = Modifier.weight(1f),

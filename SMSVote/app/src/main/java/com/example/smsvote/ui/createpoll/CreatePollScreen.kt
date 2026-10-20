@@ -145,13 +145,14 @@ fun CreatePollScreen(
             ) {
                 Column {
                     Text("設定截止時間", style = MaterialTheme.typography.bodyMedium)
-                    if (state.endTime != null) {
+                    val endTime = state.endTime
+                    if (endTime != null) {
                         TextButton(
                             onClick = { showDatePicker = true },
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                         ) {
                             Text(
-                                "截止：${dateFormat.format(Date(state.endTime))} 23:59",
+                                "截止：${dateFormat.format(Date(endTime))} 23:59",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )

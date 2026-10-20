@@ -9,18 +9,23 @@ import android.content.IntentFilter
 import android.os.Build
 import android.telephony.SmsManager
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.smsvote.data.model.Poll
+import com.example.smsvote.data.model.Recipient
+import com.example.smsvote.data.repository.RecipientRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 enum class SmsStatus { PENDING, SENT, DELIVERED, FAILED }
 
-data class SmsDeliveryState(val phone: String, val status: SmsStatus = SmsStatus.PENDING)
+data class SmsDeliveryState(val phone: String, val name: String = "", val status: SmsStatus = SmsStatus.PENDING)
 
 data class SendSmsUiState(
-    val phoneNumbers: String = "",
+    val extraNumbers: String = "",
     val isSending: Boolean = false,
     val deliveryStates: List<SmsDeliveryState> = emptyList(),
     val allSent: Boolean = false,
@@ -29,54 +34,73 @@ data class SendSmsUiState(
 
 class SendSmsViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val recipientRepository = RecipientRepository()
+
+    val recipients: StateFlow<List<Recipient>> = recipientRepository.getRecipients()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedIds: StateFlow<Set<String>> = _selectedIds.asStateFlow()
+
     private val _uiState = MutableStateFlow(SendSmsUiState())
     val uiState: StateFlow<SendSmsUiState> = _uiState.asStateFlow()
 
     private val sentReceivers = mutableListOf<BroadcastReceiver>()
 
-    fun onPhoneNumbersChange(value: String) = _uiState.update { it.copy(phoneNumbers = value) }
+    fun onExtraNumbersChange(value: String) = _uiState.update { it.copy(extraNumbers = value) }
 
-    fun resetForNewSession() = _uiState.update {
-        SendSmsUiState()
+    fun toggleRecipient(id: String) = _selectedIds.update {
+        if (id in it) it - id else it + id
+    }
+
+    fun selectAll() = _selectedIds.update { recipients.value.map { it.id }.toSet() }
+    fun clearAll() = _selectedIds.update { emptySet() }
+
+    fun resetForNewSession() {
+        _uiState.update { SendSmsUiState() }
+        _selectedIds.update { emptySet() }
     }
 
     fun sendSms(poll: Poll) {
-        val numbers = _uiState.value.phoneNumbers
+        val state = _uiState.value
+        val selectedRecipients = recipients.value.filter { it.id in _selectedIds.value }
+        val fromRecipients = selectedRecipients.map { it.phoneNumber to it.name }
+        val fromManual = state.extraNumbers
             .split(",", "\n")
             .map { it.trim() }
             .filter { it.isNotEmpty() }
+            .map { it to "" }
+        val entries = (fromRecipients + fromManual)
+            .distinctBy { it.first }
 
-        if (numbers.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "請輸入至少一個電話號碼") }
+        if (entries.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "請勾選聯絡人或在下方輸入電話號碼") }
             return
         }
 
-        val deliveryStates = numbers.map { SmsDeliveryState(it) }
+        val deliveryStates = entries.map { (phone, name) -> SmsDeliveryState(phone, name) }
         _uiState.update { it.copy(isSending = true, errorMessage = null, deliveryStates = deliveryStates) }
 
         val message = buildSmsMessage(poll)
         val smsManager = getApplication<Application>().getSystemService(SmsManager::class.java)
         val context = getApplication<Application>()
 
-        numbers.forEachIndexed { index, number ->
+        entries.forEachIndexed { index, (number, _) ->
             val sentAction = "SMS_SENT_$index"
             val deliveredAction = "SMS_DELIVERED_$index"
 
             val sentIntent = PendingIntent.getBroadcast(
-                context, index,
-                Intent(sentAction),
+                context, index, Intent(sentAction),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val deliveredIntent = PendingIntent.getBroadcast(
-                context, index + 1000,
-                Intent(deliveredAction),
+                context, index + 1000, Intent(deliveredAction),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
             val sentReceiver = object : BroadcastReceiver() {
                 override fun onReceive(ctx: Context, intent: Intent) {
-                    val success = resultCode == android.app.Activity.RESULT_OK
-                    updateStatus(index, if (success) SmsStatus.SENT else SmsStatus.FAILED)
+                    updateStatus(index, if (resultCode == android.app.Activity.RESULT_OK) SmsStatus.SENT else SmsStatus.FAILED)
                     ctx.unregisterReceiver(this)
                 }
             }

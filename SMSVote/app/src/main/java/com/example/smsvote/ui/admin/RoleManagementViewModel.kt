@@ -3,7 +3,6 @@ package com.example.smsvote.ui.admin
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.smsvote.data.model.AppUser
 import com.example.smsvote.data.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,7 +14,7 @@ class RoleManagementViewModel(application: Application) : AndroidViewModel(appli
     private val repository = UserRepository()
     val currentUid: String get() = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
-    val users: StateFlow<List<AppUser>> = repository.getAllUsers()
+    val users: StateFlow<List<com.example.smsvote.data.model.AppUser>> = repository.getAllUsers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setAdmin(uid: String) {
@@ -24,5 +23,13 @@ class RoleManagementViewModel(application: Application) : AndroidViewModel(appli
 
     fun setOperator(uid: String) {
         viewModelScope.launch { repository.updateRole(uid, "operator") }
+    }
+
+    fun approveUser(uid: String) {
+        viewModelScope.launch { repository.approveUser(uid) }
+    }
+
+    fun rejectUser(uid: String) {
+        viewModelScope.launch { repository.rejectUser(uid) }
     }
 }

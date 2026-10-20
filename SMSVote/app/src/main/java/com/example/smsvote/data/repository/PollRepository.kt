@@ -48,6 +48,27 @@ class PollRepository {
     suspend fun hasVoted(voterHash: String, pollId: String): Boolean =
         polls.document(pollId).collection("votes").document(voterHash).get().await().exists()
 
+    fun getVotesFlow(pollId: String): Flow<List<VoteRecord>> = callbackFlow {
+        val listener = polls.document(pollId).collection("votes")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { close(error); return@addSnapshotListener }
+                @Suppress("UNCHECKED_CAST")
+                val votes = snapshot?.documents?.mapNotNull { doc ->
+                    VoteRecord(
+                        id = doc.getString("id") ?: doc.id,
+                        pollId = pollId,
+                        voterHash = doc.id,
+                        choices = (doc.get("choices") as? List<String>)
+                            ?: doc.getString("choice")?.let { listOf(it) }
+                            ?: emptyList(),
+                        timestamp = doc.getLong("timestamp") ?: 0L
+                    )
+                } ?: emptyList()
+                trySend(votes)
+            }
+        awaitClose { listener.remove() }
+    }
+
     suspend fun insertVote(voteRecord: VoteRecord) {
         polls.document(voteRecord.pollId)
             .collection("votes")

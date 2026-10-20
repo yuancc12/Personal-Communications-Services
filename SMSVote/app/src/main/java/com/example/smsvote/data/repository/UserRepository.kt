@@ -18,15 +18,19 @@ class UserRepository {
                 uid = uid,
                 email = doc.getString("email") ?: email,
                 displayName = doc.getString("displayName") ?: displayName,
-                role = doc.getString("role") ?: "operator"
+                role = doc.getString("role") ?: "operator",
+                status = doc.getString("status") ?: "approved"
             )
         } else {
-            // First user ever becomes admin; subsequent users become operator
+            // First user ever becomes admin+approved; all others become operator+pending
             val allUsers = users.get().await()
-            val role = if (allUsers.isEmpty) "admin" else "operator"
-            val newUser = AppUser(uid = uid, email = email, displayName = displayName, role = role)
+            val isFirst = allUsers.isEmpty
+            val role = if (isFirst) "admin" else "operator"
+            val status = if (isFirst) "approved" else "pending"
+            val newUser = AppUser(uid = uid, email = email, displayName = displayName, role = role, status = status)
             users.document(uid).set(mapOf(
-                "uid" to uid, "email" to email, "displayName" to displayName, "role" to role
+                "uid" to uid, "email" to email, "displayName" to displayName,
+                "role" to role, "status" to status
             )).await()
             newUser
         }
@@ -50,5 +54,13 @@ class UserRepository {
 
     suspend fun updateRole(uid: String, newRole: String) {
         users.document(uid).update("role", newRole).await()
+    }
+
+    suspend fun approveUser(uid: String) {
+        users.document(uid).update("status", "approved").await()
+    }
+
+    suspend fun rejectUser(uid: String) {
+        users.document(uid).delete().await()
     }
 }
