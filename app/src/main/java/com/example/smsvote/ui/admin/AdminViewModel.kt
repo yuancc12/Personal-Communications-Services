@@ -43,12 +43,14 @@ class AdminViewModel : ViewModel() {
     fun loadUser() {
         val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return
         viewModelScope.launch {
-            val appUser = userRepository.getOrCreateUser(
-                uid = firebaseUser.uid,
-                email = firebaseUser.email ?: "",
-                displayName = firebaseUser.displayName ?: ""
-            )
-            _currentUser.value = appUser
+            runCatching {
+                userRepository.getOrCreateUser(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: "",
+                    displayName = firebaseUser.displayName ?: ""
+                )
+            }.onSuccess { _currentUser.value = it }
+              .onFailure { android.util.Log.e("AdminViewModel", "loadUser failed", it) }
         }
     }
 }

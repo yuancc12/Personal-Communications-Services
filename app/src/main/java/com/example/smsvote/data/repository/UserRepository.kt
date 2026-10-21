@@ -26,15 +26,19 @@ class UserRepository {
             val isFirst  = allUsers.isEmpty
 
             // Check if this email was pre-approved by an admin via the web dashboard
-            val preApproved = db.collection("pre_approved")
-                .document(email.lowercase()).get().await()
+            // Guard: Firestore document ID cannot be empty
+            val preApproved = if (email.isNotEmpty()) {
+                runCatching {
+                    db.collection("pre_approved").document(email.lowercase()).get().await()
+                }.getOrNull()
+            } else null
 
             val role = when {
-                isFirst            -> "super_admin"
-                preApproved.exists() -> preApproved.getString("role") ?: "operator"
-                else               -> "operator"
+                isFirst                        -> "super_admin"
+                preApproved?.exists() == true  -> preApproved.getString("role") ?: "operator"
+                else                           -> "operator"
             }
-            val status = if (isFirst || preApproved.exists()) "approved" else "pending"
+            val status = if (isFirst || preApproved?.exists() == true) "approved" else "pending"
 
             val newUser = AppUser(uid = uid, email = email, displayName = displayName, role = role, status = status)
             users.document(uid).set(mapOf(
