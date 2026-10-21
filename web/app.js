@@ -112,26 +112,52 @@ async function verifyAccess(user) {
   showChecking();
   try {
     const snap = await getDoc(doc(db, "users", user.uid));
+
     if (!snap.exists()) {
-      showDenied("🚫", "無存取權限", "此 Google 帳號未在系統中登錄，請聯絡管理員以取得邀請碼。");
+      // 帳號從未在 App 登錄過 — 嘗試自動建立 pending 文件讓管理員審核
+      try {
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email ?? "",
+          displayName: user.displayName ?? "",
+          role: "operator",
+          status: "pending",
+          createdAt: Date.now()
+        });
+        showDenied("⏳", "帳號待審核",
+          `帳號 ${user.email} 已送出申請，請等待管理員核准後再登入。`);
+      } catch {
+        // 寫入也被擋 → Rules 限制或帳號完全不在系統中
+        showDenied("🚫", "無存取權限",
+          `目前登入的帳號是 ${user.email}。\n\n` +
+          `此帳號尚未在系統中登錄。請確認：\n` +
+          `① 網頁與 Android App 使用的是同一個 Google 帳號\n` +
+          `② 請先在 Android App 登入，或請管理員在「預先授權」輸入此 Email`);
+      }
       return;
     }
+
     const data   = snap.data();
     const role   = data.role ?? "operator";
-    // super_admin 文件可能在 status 欄位加入前就建立了，視為 approved
     const status = data.status ?? (role === "super_admin" ? "approved" : "pending");
-    // 自動修補：補寫缺少的 status 欄位，避免下次再觸發
+
     if (!data.status && role === "super_admin") {
       updateDoc(doc(db, "users", user.uid), { status: "approved" }).catch(() => {});
     }
+
     if (status !== "approved") {
-      showDenied("⏳", "帳號待審核", "你的帳號尚未獲得管理員核准，請稍候或聯絡管理員。");
+      showDenied("⏳", "帳號待審核",
+        `帳號 ${user.email} 尚未獲得管理員核准，請稍候或聯絡管理員。`);
       return;
     }
+
     currentUserRole = role;
     showResults(user, role);
   } catch (e) {
-    showDenied("⚠️", "驗證失敗", "無法讀取帳號資料，請稍後再試。（" + e.message + "）");
+    showDenied("⚠️", "驗證失敗",
+      `帳號 ${user.email} 驗證失敗。\n\n` +
+      `錯誤：${e.message}\n\n` +
+      `如果剛剛剛才部署了 Firestore Rules，請確認規則已生效（firebase deploy --only firestore:rules）`);
   }
 }
 

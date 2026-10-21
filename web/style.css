@@ -69,6 +69,7 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #denied-section .card h2 { margin-bottom: 8px; }
+#denied-section .subtitle { white-space: pre-line; text-align: left; font-size: .85rem; line-height: 1.6; }
 
 /* ── Role badge in header ── */
 .role-badge {
