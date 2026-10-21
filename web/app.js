@@ -4,7 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, query, orderBy,
-  onSnapshot, updateDoc, deleteDoc,
+  onSnapshot, updateDoc, deleteDoc, getDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -21,17 +21,23 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
-const loginSection   = document.getElementById("login-section");
-const resultsSection = document.getElementById("results-section");
-const loginBtn       = document.getElementById("login-btn");
-const logoutBtn      = document.getElementById("logout-btn");
-const loginError     = document.getElementById("login-error");
-const userNameEl     = document.getElementById("user-name");
-const pollsContainer = document.getElementById("polls-container");
-const noPollsEl      = document.getElementById("no-polls");
+const loginSection    = document.getElementById("login-section");
+const checkingSection = document.getElementById("checking-section");
+const deniedSection   = document.getElementById("denied-section");
+const resultsSection  = document.getElementById("results-section");
+const loginBtn        = document.getElementById("login-btn");
+const logoutBtn       = document.getElementById("logout-btn");
+const loginError      = document.getElementById("login-error");
+const userNameEl      = document.getElementById("user-name");
+const userRoleBadge   = document.getElementById("user-role-badge");
+const pollsContainer  = document.getElementById("polls-container");
+const noPollsEl       = document.getElementById("no-polls");
+
+document.getElementById("denied-logout-btn").addEventListener("click", () => signOut(auth));
 
 let pollsData        = [];
 let currentUser      = null;
+let currentUserRole  = null; // 'super_admin' | 'admin' | 'operator'
 const voteCounts     = new Map();   // pollId -> { A: n, B: n, ... }
 const voteListeners  = new Map();   // pollId -> unsubscribe
 const chartTypes     = new Map();   // pollId -> 'bar' | 'pie'
@@ -45,7 +51,7 @@ const CHART_COLORS = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A", "#C62828"];
 // ── Auth ──────────────────────────────────────────────────────
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
-  if (user) { showResults(user); } else { showLogin(); }
+  if (user) { verifyAccess(user); } else { showLogin(); }
 });
 
 loginBtn.addEventListener("click", async () => {
@@ -60,17 +66,60 @@ loginBtn.addEventListener("click", async () => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-function showLogin() {
-  cleanup();
-  loginSection.classList.remove("hidden");
-  resultsSection.classList.add("hidden");
+function hideAll() {
+  [loginSection, checkingSection, deniedSection, resultsSection]
+    .forEach(el => el.classList.add("hidden"));
 }
 
-function showResults(user) {
-  loginSection.classList.add("hidden");
+function showLogin() {
+  cleanup();
+  hideAll();
+  loginSection.classList.remove("hidden");
+}
+
+function showChecking() {
+  hideAll();
+  checkingSection.classList.remove("hidden");
+}
+
+function showDenied(icon, title, msg) {
+  hideAll();
+  document.getElementById("denied-icon").textContent  = icon;
+  document.getElementById("denied-title").textContent = title;
+  document.getElementById("denied-msg").textContent   = msg;
+  deniedSection.classList.remove("hidden");
+}
+
+function showResults(user, role) {
+  hideAll();
   resultsSection.classList.remove("hidden");
   userNameEl.textContent = user.displayName || user.email;
+  const roleLabels = { super_admin: "👑 總管理員", admin: "⭐ 管理員", operator: "操作員" };
+  userRoleBadge.textContent = roleLabels[role] || "";
+  userRoleBadge.className   = "role-badge role-" + role;
   subscribeToPolls();
+}
+
+async function verifyAccess(user) {
+  showChecking();
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (!snap.exists()) {
+      showDenied("🚫", "無存取權限", "此 Google 帳號未在系統中登錄，請聯絡管理員以取得邀請碼。");
+      return;
+    }
+    const data   = snap.data();
+    const status = data.status ?? "pending";
+    const role   = data.role   ?? "operator";
+    if (status !== "approved") {
+      showDenied("⏳", "帳號待審核", "你的帳號尚未獲得管理員核准，請稍候或聯絡管理員。");
+      return;
+    }
+    currentUserRole = role;
+    showResults(user, role);
+  } catch (e) {
+    showDenied("⚠️", "驗證失敗", "無法讀取帳號資料，請稍後再試。（" + e.message + "）");
+  }
 }
 
 function cleanup() {
@@ -82,6 +131,7 @@ function cleanup() {
   animFrames.forEach(id => cancelAnimationFrame(id)); animFrames.clear();
   prevTotals.clear();
   pollsData = [];
+  currentUserRole = null;
 }
 
 // ── Firestore reads ───────────────────────────────────────────
@@ -250,11 +300,13 @@ function buildPollCard(poll) {
     </p>
 
     <div class="poll-actions">
-      <button class="action-btn btn-toggle-poll" data-poll-id="${poll.id}" data-expired="${isExpired}">
-        ${isExpired ? "🔓 重新開啟" : "🔒 截止投票"}
-      </button>
+      ${isAdmin() ? `
+        <button class="action-btn btn-toggle-poll" data-poll-id="${poll.id}" data-expired="${isExpired}">
+          ${isExpired ? "🔓 重新開啟" : "🔒 截止投票"}
+        </button>` : ""}
       <button class="action-btn btn-export" data-poll-id="${poll.id}">⬇ 匯出 CSV</button>
-      <button class="action-btn btn-delete" data-poll-id="${poll.id}">🗑 刪除</button>
+      ${isAdmin() ? `
+        <button class="action-btn btn-delete" data-poll-id="${poll.id}">🗑 刪除</button>` : ""}
     </div>
 
     <div class="chart-toggle">
@@ -363,4 +415,5 @@ function createPieChart(pollId, poll) {
   }));
 }
 
+const isAdmin = () => currentUserRole === "admin" || currentUserRole === "super_admin";
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

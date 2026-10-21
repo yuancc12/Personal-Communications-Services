@@ -47,6 +47,40 @@ body {
 
 .error { color: #d32f2f; margin-top: 12px; font-size: .875rem; }
 
+/* ── Checking / Denied screens ── */
+#checking-section, #denied-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.center-card { text-align: center; }
+
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#denied-section .card h2 { margin-bottom: 8px; }
+
+/* ── Role badge in header ── */
+.role-badge {
+  font-size: .75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.role-super_admin { background: #ede7f6; color: #4a148c; }
+.role-admin       { background: #e3f2fd; color: #0d47a1; }
+.role-operator    { background: #f1f8e9; color: #33691e; }
+
 /* ── Header ── */
 header {
   background: #fff;

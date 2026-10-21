@@ -18,12 +18,31 @@
     </div>
   </div>
 
-  <!-- 結果區塊（登入後才顯示） -->
+  <!-- 驗證中 -->
+  <div id="checking-section" class="hidden">
+    <div class="card center-card">
+      <div class="spinner"></div>
+      <p style="margin-top:16px;color:#666">驗證身分中…</p>
+    </div>
+  </div>
+
+  <!-- 待審核 / 無權限 -->
+  <div id="denied-section" class="hidden">
+    <div class="card center-card">
+      <div id="denied-icon" style="font-size:3rem;margin-bottom:12px">⏳</div>
+      <h2 id="denied-title">帳號待審核</h2>
+      <p id="denied-msg" class="subtitle">你的帳號尚未獲得管理員核准，請聯絡管理員。</p>
+      <button id="denied-logout-btn" style="margin-top:24px">登出</button>
+    </div>
+  </div>
+
+  <!-- 結果區塊（已核准才顯示） -->
   <div id="results-section" class="hidden">
     <header>
       <h1>SMS 匿名投票 — 即時結果</h1>
       <div class="user-info">
         <span id="user-name"></span>
+        <span id="user-role-badge" class="role-badge"></span>
         <button id="logout-btn">登出</button>
       </div>
     </header>
