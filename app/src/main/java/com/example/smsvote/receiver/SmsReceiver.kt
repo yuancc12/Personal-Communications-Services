@@ -7,6 +7,7 @@ import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -87,23 +88,33 @@ class SmsReceiver : BroadcastReceiver() {
                 val voterHash = sha256("$senderPhone${pollId}SMSVote2024")
                 Log.d("SmsReceiver", "pollId=$pollId voterHash=$voterHash choices=$choices")
 
-                val voteDoc = db.collection("polls").document(pollId)
-                    .collection("votes").document(voterHash).get().await()
+                val voteRef = db.collection("polls").document(pollId)
+                    .collection("votes").document(voterHash)
+                val voteData = mapOf(
+                    "pollId" to pollId,
+                    "voterHash" to voterHash,
+                    "choices" to choices,
+                    "timestamp" to System.currentTimeMillis()
+                )
 
-                if (voteDoc.exists()) {
+                // Transaction: check + write are atomic — prevents duplicate votes from concurrent SMS
+                var isDuplicate = false
+                try {
+                    db.runTransaction { transaction ->
+                        val snap = transaction.get(voteRef)
+                        if (snap.exists()) { isDuplicate = true; return@runTransaction }
+                        transaction.set(voteRef, voteData)
+                    }.await()
+                } catch (e: FirebaseFirestoreException) {
+                    Log.e("SmsReceiver", "Transaction failed", e)
+                    return@launch
+                }
+
+                if (isDuplicate) {
                     Log.d("SmsReceiver", "重複投票，忽略")
                     sendReply(context, senderPhone, "您已投過此票，無法重複投票。")
                     return@launch
                 }
-
-                db.collection("polls").document(pollId)
-                    .collection("votes").document(voterHash)
-                    .set(mapOf(
-                        "pollId" to pollId,
-                        "voterHash" to voterHash,
-                        "choices" to choices,
-                        "timestamp" to System.currentTimeMillis()
-                    )).await()
 
                 Log.d("SmsReceiver", "投票成功！choices=$choices")
                 val chosenTexts = choices.joinToString("、") { c ->

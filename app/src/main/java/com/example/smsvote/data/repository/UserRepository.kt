@@ -40,12 +40,15 @@ class UserRepository {
         val listener = users.addSnapshotListener { snapshot, error ->
             if (error != null) { close(error); return@addSnapshotListener }
             val list = snapshot?.documents?.mapNotNull { doc ->
+                val role = doc.getString("role") ?: "operator"
                 AppUser(
                     uid = doc.getString("uid") ?: doc.id,
                     email = doc.getString("email") ?: "",
                     displayName = doc.getString("displayName") ?: "",
-                    role = doc.getString("role") ?: "operator",
-                    status = doc.getString("status") ?: "approved"
+                    role = role,
+                    // super_admin 是第一個帳號，沒有 status 欄位也視為 approved；
+                    // 其他缺少 status 欄位的舊帳號一律視為 pending 等待審核
+                    status = doc.getString("status") ?: if (role == "super_admin") "approved" else "pending"
                 )
             } ?: emptyList()
             trySend(list)
