@@ -30,9 +30,13 @@ const pollsContainer = document.getElementById("polls-container");
 const noPollsEl      = document.getElementById("no-polls");
 
 let pollsData = [];
-const voteCounts  = new Map();   // pollId -> { A: n, B: n, ... }
-const voteListeners = new Map(); // pollId -> unsubscribe
+const voteCounts    = new Map();  // pollId -> { A: n, B: n, ... }
+const voteListeners = new Map();  // pollId -> unsubscribe
+const chartTypes    = new Map();  // pollId -> 'bar' | 'pie'
+const chartInstances = new Map(); // pollId -> Chart instance
 let unsubscribePolls = null;
+
+const CHART_COLORS = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A", "#C62828"];
 
 // ── Auth ──────────────────────────────────────────────────────
 onAuthStateChanged(auth, (user) => {
@@ -69,6 +73,9 @@ function cleanup() {
   voteListeners.forEach(unsub => unsub());
   voteListeners.clear();
   voteCounts.clear();
+  chartInstances.forEach(c => c.destroy());
+  chartInstances.clear();
+  chartTypes.clear();
   pollsData = [];
 }
 
@@ -93,7 +100,6 @@ function subscribeToVotes(pollId) {
     const counts = {};
     snapshot.forEach(doc => {
       const data = doc.data();
-      // Support both new `choices` array and legacy `choice` string
       const choices = data.choices || (data.choice ? [data.choice] : []);
       choices.forEach(c => { counts[c] = (counts[c] || 0) + 1; });
     });
@@ -105,22 +111,33 @@ function subscribeToVotes(pollId) {
 
 // ── Render ────────────────────────────────────────────────────
 function renderAll() {
+  // Destroy all chart instances before wiping DOM
+  chartInstances.forEach(c => c.destroy());
+  chartInstances.clear();
+
   pollsContainer.innerHTML = "";
   if (pollsData.length === 0) { noPollsEl.classList.remove("hidden"); return; }
   noPollsEl.classList.add("hidden");
+
   pollsData.forEach(poll => pollsContainer.appendChild(buildPollCard(poll)));
+
+  // Recreate pie charts for polls that already had pie selected
+  pollsData.forEach(poll => {
+    if (chartTypes.get(poll.id) === "pie") createPieChart(poll.id, poll);
+  });
 }
 
 function buildPollCard(poll) {
-  const counts = voteCounts.get(poll.id) || {};
-  const rawOptions = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
-  const options = rawOptions.map((text, i) => {
+  const counts   = voteCounts.get(poll.id) || {};
+  const rawOpts  = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+  const options  = rawOpts.map((text, i) => {
     const label = String.fromCharCode(65 + i);
     return { label, text, count: counts[label] || 0 };
   });
-  const total = options.reduce((sum, o) => sum + o.count, 0);
-  const isExpired = poll.endTime && Date.now() > poll.endTime;
+  const total      = options.reduce((s, o) => s + o.count, 0);
+  const isExpired  = poll.endTime && Date.now() > poll.endTime;
   const maxChoices = poll.maxChoices || 1;
+  const type       = chartTypes.get(poll.id) || "bar";
 
   const endTimeStr = poll.endTime
     ? new Date(poll.endTime).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -128,6 +145,7 @@ function buildPollCard(poll) {
 
   const card = document.createElement("div");
   card.className = "poll-card" + (isExpired ? " poll-expired" : "");
+  card.dataset.pollId = poll.id;
 
   card.innerHTML = `
     <div class="poll-header">
@@ -139,22 +157,109 @@ function buildPollCard(poll) {
       ${endTimeStr ? ` &nbsp;·&nbsp; 截止：${endTimeStr}` : ""}
       ${maxChoices > 1 ? ` &nbsp;·&nbsp; 最多選 ${maxChoices} 個` : ""}
     </p>
-    ${options.map(({ label, text, count }) => {
-      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-      return `
-        <div class="bar-row">
-          <span class="bar-label">${label}</span>
-          <div class="bar-col">
-            <span class="bar-option-text">${esc(text)}</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:${pct}%"></div>
+    <div class="chart-toggle">
+      <button class="toggle-btn ${type === "bar" ? "active" : ""}" data-type="bar">📊 長條圖</button>
+      <button class="toggle-btn ${type === "pie" ? "active" : ""}" data-type="pie">🥧 圓餅圖</button>
+    </div>
+    <div class="bar-rows" ${type === "pie" ? 'style="display:none"' : ""}>
+      ${options.map(({ label, text, count }) => {
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        return `
+          <div class="bar-row">
+            <span class="bar-label">${label}</span>
+            <div class="bar-col">
+              <span class="bar-option-text">${esc(text)}</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${pct}%"></div>
+              </div>
             </div>
-          </div>
-          <span class="bar-count">${count}<br><small>${pct}%</small></span>
-        </div>`;
-    }).join("")}
+            <span class="bar-count">${count}<br><small>${pct}%</small></span>
+          </div>`;
+      }).join("")}
+    </div>
+    <div class="chart-canvas-wrapper" ${type === "bar" ? 'style="display:none"' : ""}>
+      <canvas id="chart-${poll.id}"></canvas>
+    </div>
   `;
+
+  card.querySelectorAll(".toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const newType = btn.dataset.type;
+      if (chartTypes.get(poll.id) === newType) return;
+      chartTypes.set(poll.id, newType);
+
+      card.querySelectorAll(".toggle-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.type === newType)
+      );
+
+      const barRows      = card.querySelector(".bar-rows");
+      const canvasWrapper = card.querySelector(".chart-canvas-wrapper");
+
+      if (newType === "pie") {
+        barRows.style.display = "none";
+        canvasWrapper.style.display = "block";
+        createPieChart(poll.id, poll);
+      } else {
+        if (chartInstances.has(poll.id)) {
+          chartInstances.get(poll.id).destroy();
+          chartInstances.delete(poll.id);
+        }
+        canvasWrapper.style.display = "none";
+        barRows.style.display = "block";
+      }
+    });
+  });
+
   return card;
 }
 
-const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function createPieChart(pollId, poll) {
+  const canvas = document.getElementById(`chart-${pollId}`);
+  if (!canvas) return;
+
+  if (chartInstances.has(pollId)) {
+    chartInstances.get(pollId).destroy();
+    chartInstances.delete(pollId);
+  }
+
+  const counts  = voteCounts.get(pollId) || {};
+  const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+  const labels  = rawOpts.map((text, i) => `${String.fromCharCode(65 + i)}  ${text}`);
+  const data    = rawOpts.map((_, i) => counts[String.fromCharCode(65 + i)] || 0);
+  const total   = data.reduce((s, v) => s + v, 0);
+
+  const chart = new Chart(canvas, {
+    type: "pie",
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: CHART_COLORS.slice(0, rawOpts.length),
+        borderWidth: 2,
+        borderColor: "#fff",
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 700 },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { font: { size: 13 }, padding: 16, color: "#333" }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+              return `  ${ctx.parsed} 票（${pct}%）`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  chartInstances.set(pollId, chart);
+}
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
