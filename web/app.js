@@ -4,7 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, query, orderBy,
-  onSnapshot, updateDoc, deleteDoc, getDoc,
+  onSnapshot, updateDoc, deleteDoc, getDoc, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -30,6 +30,7 @@ const logoutBtn       = document.getElementById("logout-btn");
 const loginError      = document.getElementById("login-error");
 const userNameEl      = document.getElementById("user-name");
 const userRoleBadge   = document.getElementById("user-role-badge");
+const adminPanelBtn   = document.getElementById("admin-panel-btn");
 const pollsContainer  = document.getElementById("polls-container");
 const noPollsEl       = document.getElementById("no-polls");
 
@@ -38,6 +39,8 @@ document.getElementById("denied-logout-btn").addEventListener("click", () => sig
 let pollsData        = [];
 let currentUser      = null;
 let currentUserRole  = null; // 'super_admin' | 'admin' | 'operator'
+let usersData        = [];
+let usersUnsub       = null;
 const voteCounts     = new Map();   // pollId -> { A: n, B: n, ... }
 const voteListeners  = new Map();   // pollId -> unsubscribe
 const chartTypes     = new Map();   // pollId -> 'bar' | 'pie'
@@ -97,6 +100,11 @@ function showResults(user, role) {
   const roleLabels = { super_admin: "👑 總管理員", admin: "⭐ 管理員", operator: "操作員" };
   userRoleBadge.textContent = roleLabels[role] || "";
   userRoleBadge.className   = "role-badge role-" + role;
+  if (role === "admin" || role === "super_admin") {
+    adminPanelBtn.classList.remove("hidden");
+    adminPanelBtn.onclick = openAdminPanel;
+    subscribeToUsers();
+  }
   subscribeToPolls();
 }
 
@@ -124,14 +132,177 @@ async function verifyAccess(user) {
 
 function cleanup() {
   if (unsubscribePolls) { unsubscribePolls(); unsubscribePolls = null; }
+  if (usersUnsub)       { usersUnsub(); usersUnsub = null; }
   voteListeners.forEach(u => u()); voteListeners.clear();
   voteCounts.clear();
   chartInstances.forEach(c => c.destroy()); chartInstances.clear();
   chartTypes.clear();
   animFrames.forEach(id => cancelAnimationFrame(id)); animFrames.clear();
   prevTotals.clear();
-  pollsData = [];
+  pollsData = []; usersData = [];
   currentUserRole = null;
+  document.getElementById("_admin_panel")?.remove();
+}
+
+// ── Admin panel ───────────────────────────────────────────────
+function subscribeToUsers() {
+  usersUnsub = onSnapshot(collection(db, "users"), snap => {
+    usersData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    refreshAdminPanel();
+  });
+}
+
+function openAdminPanel() {
+  document.getElementById("_admin_panel")?.remove();
+  const el = document.createElement("div");
+  el.id = "_admin_panel";
+  el.className = "admin-overlay";
+  el.innerHTML = `
+    <div class="admin-drawer">
+      <div class="admin-drawer-header">
+        <h2>帳號管理</h2>
+        <button class="admin-close-btn">✕</button>
+      </div>
+      <div class="admin-tabs">
+        <button class="atab active" data-tab="pending">待審核</button>
+        <button class="atab" data-tab="preapprove">預先授權</button>
+        <button class="atab" data-tab="allusers">所有帳號</button>
+      </div>
+      <div id="admin-tab-pending"    class="admin-tab-content"></div>
+      <div id="admin-tab-preapprove" class="admin-tab-content hidden"></div>
+      <div id="admin-tab-allusers"   class="admin-tab-content hidden"></div>
+    </div>`;
+  document.body.appendChild(el);
+
+  el.querySelector(".admin-close-btn").addEventListener("click", () => el.remove());
+  el.addEventListener("click", e => { if (e.target === el) el.remove(); });
+  el.querySelectorAll(".atab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll(".atab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      el.querySelectorAll(".admin-tab-content").forEach(t => t.classList.add("hidden"));
+      el.querySelector(`#admin-tab-${btn.dataset.tab}`).classList.remove("hidden");
+    });
+  });
+
+  refreshAdminPanel();
+}
+
+function refreshAdminPanel() {
+  const el = document.getElementById("_admin_panel");
+  if (!el) return;
+
+  // ── Tab: 待審核 ──
+  const pending = usersData.filter(u => u.status === "pending");
+  const pendingTab = el.querySelector("#admin-tab-pending");
+  if (pending.length === 0) {
+    pendingTab.innerHTML = `<p class="admin-empty">目前沒有待審核帳號</p>`;
+  } else {
+    pendingTab.innerHTML = pending.map(u => `
+      <div class="admin-user-row">
+        <div class="admin-user-info">
+          <span class="admin-user-name">${esc(u.displayName || "（未命名）")}</span>
+          <span class="admin-user-email">${esc(u.email || "")}</span>
+        </div>
+        <div class="admin-user-actions">
+          <button class="abtn abtn-approve" data-uid="${u.id}">核准</button>
+          <button class="abtn abtn-reject"  data-uid="${u.id}">拒絕</button>
+        </div>
+      </div>`).join("");
+    pendingTab.querySelectorAll(".abtn-approve").forEach(btn =>
+      btn.addEventListener("click", () => approveUserWeb(btn.dataset.uid))
+    );
+    pendingTab.querySelectorAll(".abtn-reject").forEach(btn =>
+      btn.addEventListener("click", () => {
+        showConfirm("確定要拒絕並刪除此帳號？", () => rejectUserWeb(btn.dataset.uid));
+      })
+    );
+  }
+
+  // ── Tab: 預先授權 ──
+  const preTab = el.querySelector("#admin-tab-preapprove");
+  if (!preTab.querySelector(".pre-form")) {
+    preTab.innerHTML = `
+      <p class="admin-hint">輸入對方的 Google 帳號 Email，對方登入時會自動核准並獲得指定角色。</p>
+      <div class="pre-form">
+        <input id="pre-email" type="email" placeholder="example@gmail.com" />
+        <select id="pre-role">
+          <option value="operator">操作員</option>
+          <option value="admin">管理員</option>
+        </select>
+        <button id="pre-submit" class="abtn abtn-approve">新增</button>
+      </div>
+      <p id="pre-msg" class="admin-msg hidden"></p>
+      <div id="pre-list"></div>`;
+    preTab.querySelector("#pre-submit").addEventListener("click", async () => {
+      const email = preTab.querySelector("#pre-email").value.trim().toLowerCase();
+      const role  = preTab.querySelector("#pre-role").value;
+      const msg   = preTab.querySelector("#pre-msg");
+      if (!email.includes("@")) { showPreMsg(msg, "請輸入有效的 Email", "error"); return; }
+      try {
+        await setDoc(doc(db, "pre_approved", email), {
+          email, role,
+          createdBy: currentUser?.uid ?? "",
+          createdAt: Date.now()
+        });
+        preTab.querySelector("#pre-email").value = "";
+        showPreMsg(msg, `✓ 已新增 ${email}（${role === "admin" ? "管理員" : "操作員"}）`, "ok");
+        loadPreApproved(preTab.querySelector("#pre-list"));
+      } catch (e) { showPreMsg(msg, "失敗：" + e.message, "error"); }
+    });
+    loadPreApproved(preTab.querySelector("#pre-list"));
+  }
+
+  // ── Tab: 所有帳號 ──
+  const allTab = el.querySelector("#admin-tab-allusers");
+  const roleLabel = r => ({ super_admin: "👑 總管理員", admin: "⭐ 管理員", operator: "操作員" }[r] ?? r);
+  const approved  = usersData.filter(u => u.status === "approved");
+  allTab.innerHTML = approved.length === 0 ? `<p class="admin-empty">尚無已核准帳號</p>` :
+    approved.map(u => `
+      <div class="admin-user-row">
+        <div class="admin-user-info">
+          <span class="admin-user-name">${esc(u.displayName || "（未命名）")}</span>
+          <span class="admin-user-email">${esc(u.email || "")}</span>
+        </div>
+        <span class="role-badge role-${u.role}">${roleLabel(u.role)}</span>
+      </div>`).join("");
+}
+
+async function loadPreApproved(container) {
+  const snap = await import("https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js")
+    .then(m => m.getDocs(m.collection(db, "pre_approved")));
+  if (snap.empty) { container.innerHTML = `<p class="admin-empty" style="margin-top:12px">尚無預先授權記錄</p>`; return; }
+  const roleLabel = r => r === "admin" ? "管理員" : "操作員";
+  container.innerHTML = `<div style="margin-top:12px;font-size:.8rem;color:#888;margin-bottom:6px">已授權清單</div>` +
+    snap.docs.map(d => `
+      <div class="admin-user-row">
+        <div class="admin-user-info">
+          <span class="admin-user-email">${esc(d.id)}</span>
+        </div>
+        <span class="role-badge role-${d.data().role}">${roleLabel(d.data().role)}</span>
+        <button class="abtn abtn-reject" data-email="${d.id}" style="margin-left:8px">移除</button>
+      </div>`).join("");
+  container.querySelectorAll(".abtn-reject").forEach(btn =>
+    btn.addEventListener("click", async () => {
+      await deleteDoc(doc(db, "pre_approved", btn.dataset.email));
+      loadPreApproved(container);
+    })
+  );
+}
+
+function showPreMsg(el, msg, type) {
+  el.textContent = msg;
+  el.className = "admin-msg " + type;
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 4000);
+}
+
+async function approveUserWeb(uid) {
+  await updateDoc(doc(db, "users", uid), { status: "approved" });
+}
+
+async function rejectUserWeb(uid) {
+  await deleteDoc(doc(db, "users", uid));
 }
 
 // ── Firestore reads ───────────────────────────────────────────

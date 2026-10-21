@@ -22,11 +22,20 @@ class UserRepository {
                 status = doc.getString("status") ?: "approved"
             )
         } else {
-            // First user ever becomes admin+approved; all others become operator+pending
             val allUsers = users.get().await()
-            val isFirst = allUsers.isEmpty
-            val role = if (isFirst) "super_admin" else "operator"
-            val status = if (isFirst) "approved" else "pending"
+            val isFirst  = allUsers.isEmpty
+
+            // Check if this email was pre-approved by an admin via the web dashboard
+            val preApproved = db.collection("pre_approved")
+                .document(email.lowercase()).get().await()
+
+            val role = when {
+                isFirst            -> "super_admin"
+                preApproved.exists() -> preApproved.getString("role") ?: "operator"
+                else               -> "operator"
+            }
+            val status = if (isFirst || preApproved.exists()) "approved" else "pending"
+
             val newUser = AppUser(uid = uid, email = email, displayName = displayName, role = role, status = status)
             users.document(uid).set(mapOf(
                 "uid" to uid, "email" to email, "displayName" to displayName,

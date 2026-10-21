@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function uid()      { return request.auth.uid; }
+    function signedIn() { return request.auth != null; }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(uid())).data;
+    }
+    function isApproved() {
+      return signedIn() && userDoc().status == 'approved';
+    }
+    function isAdmin() {
+      return isApproved() &&
+        (userDoc().role == 'admin' || userDoc().role == 'super_admin');
+    }
+    function isSuperAdmin() {
+      return isApproved() && userDoc().role == 'super_admin';
+    }
+
+    // ── users ──────────────────────────────────────────────────
+    match /users/{userId} {
+      // 讀自己的文件（web verifyAccess），或 admin 讀所有人
+      allow read: if signedIn() && (uid() == userId || isAdmin());
+      // 第一次登入時建立自己的文件
+      allow create: if signedIn() && uid() == userId;
+      // super_admin 可改所有欄位；admin 只能改 status（核准/拒絕），不能改 role
+      allow update: if isSuperAdmin()
+                 || (isAdmin() && uid() != userId
+                     && !request.resource.data.diff(resource.data)
+                           .affectedKeys().hasAny(['role']));
+      // admin 可刪除（拒絕 = 刪除文件）
+      allow delete: if isAdmin();
+    }
+
+    // ── pre_approved（email 預先授權）────────────────────────
+    match /pre_approved/{email} {
+      allow read:  if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── polls ──────────────────────────────────────────────────
+    match /polls/{pollId} {
+      allow read:   if isApproved();
+      allow create: if isApproved();
+      allow update: if isAdmin()
+                 || (isApproved() && resource.data.createdBy == uid());
+      allow delete: if isAdmin();
+
+      // votes 子集合：簡訊投票者沒有 Firebase Auth，允許任何人寫
+      match /votes/{voteId} {
+        allow read:  if isApproved();
+        allow write: if true;
+      }
+    }
+
+    // ── invitations ────────────────────────────────────────────
+    match /invitations/{token} {
+      allow read:   if true;
+      allow create: if isAdmin();
+      allow update: if true;  // 兌換時標記 used
+      allow delete: if isAdmin();
+    }
+  }
+}

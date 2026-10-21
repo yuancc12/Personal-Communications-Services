@@ -173,6 +173,167 @@ main {
 }
 .poll-meta strong { color: #555; }
 
+/* ── 帳號管理按鈕 ── */
+#admin-panel-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: .8rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity .15s;
+}
+#admin-panel-btn:hover { opacity: .85; }
+
+/* ── 管理員 Drawer ── */
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-drawer {
+  background: #fff;
+  width: min(480px, 100vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,.15);
+  overflow: hidden;
+}
+
+.admin-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #eee;
+}
+.admin-drawer-header h2 { font-size: 1.1rem; }
+
+.admin-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #888;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.admin-close-btn:hover { background: #f5f5f5; color: #333; }
+
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #eee;
+  padding: 0 16px;
+}
+
+.atab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  font-size: .85rem;
+  cursor: pointer;
+  color: #888;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.atab.active { color: #667eea; border-bottom-color: #667eea; font-weight: 600; }
+.atab:hover:not(.active) { color: #555; }
+
+.admin-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+}
+
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.admin-user-row:last-child { border-bottom: none; }
+
+.admin-user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-user-name  { font-size: .9rem; font-weight: 500; color: #222; }
+.admin-user-email { font-size: .78rem; color: #888; }
+
+.admin-user-actions { display: flex; gap: 6px; }
+
+.abtn {
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: .78rem;
+  cursor: pointer;
+  border: 1.5px solid;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.abtn-approve { border-color: #43a047; color: #2e7d32; background: #f1f8e9; }
+.abtn-approve:hover { background: #c8e6c9; }
+.abtn-reject  { border-color: #e53935; color: #c62828; background: #fff; }
+.abtn-reject:hover  { background: #ffebee; }
+
+.admin-empty {
+  color: #aaa;
+  font-size: .875rem;
+  text-align: center;
+  padding: 32px 0;
+}
+
+.admin-hint {
+  font-size: .82rem;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.pre-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pre-form input {
+  flex: 1;
+  min-width: 180px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: .875rem;
+  outline: none;
+}
+.pre-form input:focus { border-color: #667eea; }
+.pre-form select {
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: .875rem;
+  outline: none;
+  background: #fff;
+}
+
+.admin-msg { font-size: .82rem; margin-top: 8px; }
+.admin-msg.ok    { color: #2e7d32; }
+.admin-msg.error { color: #c62828; }
+
 /* ── 操作按鈕列 ── */
 .poll-actions {
   display: flex;
