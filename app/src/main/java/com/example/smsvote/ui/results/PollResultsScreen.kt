@@ -2,6 +2,7 @@ package com.example.smsvote.ui.results
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,30 +18,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +59,19 @@ import com.example.smsvote.data.model.Poll
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private enum class ChartType(val label: String) {
+    BAR("長條圖"),
+    PIE("圓餅圖")
+}
+
+private val CHART_COLORS = listOf(
+    Color(0xFF1565C0),
+    Color(0xFF2E7D32),
+    Color(0xFFE65100),
+    Color(0xFF6A1B9A),
+    Color(0xFFC62828)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +87,7 @@ fun PollResultsScreen(
     val isExpired = poll.endTime != null && System.currentTimeMillis() > poll.endTime
     val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
     val context = LocalContext.current
+    var chartType by remember { mutableStateOf(ChartType.BAR) }
 
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
@@ -152,12 +174,37 @@ fun PollResultsScreen(
                 }
             }
 
+            // ── Chart type selector ──
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    ChartType.entries.forEach { type ->
+                        FilterChip(
+                            selected = chartType == type,
+                            onClick = { chartType = type },
+                            label = { Text(type.label) }
+                        )
+                    }
+                }
+            }
+
             item { HorizontalDivider() }
 
-            // ── Results bars ──
-            items(results) { result ->
-                val maxCount = results.maxOfOrNull { it.count } ?: 0
-                ResultBar(result = result, isLeading = result.count == maxCount && result.count > 0)
+            // ── Chart ──
+            if (chartType == ChartType.BAR) {
+                items(results) { result ->
+                    val maxCount = results.maxOfOrNull { it.count } ?: 0
+                    ResultBar(result = result, isLeading = result.count == maxCount && result.count > 0)
+                }
+            } else {
+                item {
+                    PieChartView(
+                        results = results,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
             }
 
             item { HorizontalDivider() }
@@ -189,6 +236,89 @@ fun PollResultsScreen(
             }
 
             item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun PieChartView(results: List<OptionResult>, modifier: Modifier = Modifier) {
+    val total = results.sumOf { it.count }.toFloat()
+    var triggered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { triggered = true }
+    val reveal by animateFloatAsState(
+        targetValue = if (triggered) 1f else 0f,
+        animationSpec = tween(durationMillis = 900),
+        label = "pie_reveal"
+    )
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (total == 0f) {
+            Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("尚無票數", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            Canvas(modifier = Modifier.size(220.dp)) {
+                val totalAngle = reveal * 360f
+                var startAngle = -90f
+                var drawn = 0f
+                results.forEachIndexed { index, result ->
+                    if (result.count == 0) return@forEachIndexed
+                    val sweep = (result.count / total) * 360f
+                    val gap = if (results.count { it.count > 0 } > 1) 1.5f else 0f
+                    val actualSweep = minOf(sweep - gap, totalAngle - drawn)
+                    if (actualSweep <= 0f) return@forEachIndexed
+                    drawArc(
+                        color = CHART_COLORS[index % CHART_COLORS.size],
+                        startAngle = startAngle,
+                        sweepAngle = actualSweep,
+                        useCenter = true,
+                        size = Size(size.width, size.height)
+                    )
+                    startAngle += sweep
+                    drawn += sweep
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            results.forEachIndexed { index, result ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(CHART_COLORS[index % CHART_COLORS.size])
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "${result.label}  ${result.option}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${result.count} 票（${"%.0f".format(result.percent * 100)}%）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
