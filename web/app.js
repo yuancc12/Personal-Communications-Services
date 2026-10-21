@@ -117,8 +117,13 @@ async function verifyAccess(user) {
       return;
     }
     const data   = snap.data();
-    const status = data.status ?? "pending";
-    const role   = data.role   ?? "operator";
+    const role   = data.role ?? "operator";
+    // super_admin 文件可能在 status 欄位加入前就建立了，視為 approved
+    const status = data.status ?? (role === "super_admin" ? "approved" : "pending");
+    // 自動修補：補寫缺少的 status 欄位，避免下次再觸發
+    if (!data.status && role === "super_admin") {
+      updateDoc(doc(db, "users", user.uid), { status: "approved" }).catch(() => {});
+    }
     if (status !== "approved") {
       showDenied("⏳", "帳號待審核", "你的帳號尚未獲得管理員核准，請稍候或聯絡管理員。");
       return;
