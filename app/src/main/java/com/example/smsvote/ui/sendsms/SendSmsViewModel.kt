@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.smsvote.data.model.Poll
 import com.example.smsvote.data.model.Recipient
+import com.example.smsvote.data.repository.PollRepository
 import com.example.smsvote.data.repository.RecipientRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class SmsStatus { PENDING, SENT, DELIVERED, FAILED }
 
@@ -37,6 +39,7 @@ data class SendSmsUiState(
 class SendSmsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val recipientRepository = RecipientRepository()
+    private val pollRepository = PollRepository()
 
     val recipients: StateFlow<List<Recipient>> = recipientRepository.getRecipients()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -160,6 +163,14 @@ class SendSmsViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         _uiState.update { it.copy(isSending = false) }
+
+        // Persist sent recipient IDs so response rate can be computed
+        val recipientIds = selectedRecipients.map { it.id }
+        if (recipientIds.isNotEmpty()) {
+            viewModelScope.launch {
+                runCatching { pollRepository.addSentRecipients(poll.id, recipientIds) }
+            }
+        }
     }
 
     private fun updateStatus(index: Int, status: SmsStatus) {

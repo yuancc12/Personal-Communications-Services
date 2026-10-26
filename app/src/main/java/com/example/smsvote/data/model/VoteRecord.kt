@@ -6,6 +6,7 @@ data class VoteRecord(
     val id: String = UUID.randomUUID().toString(),
     val pollId: String = "",
     val voterHash: String = "",
+    val recipientId: String = "",
     val choices: List<String> = emptyList(),
     val timestamp: Long = System.currentTimeMillis()
 )

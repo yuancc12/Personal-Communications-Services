@@ -83,6 +83,7 @@ fun PollResultsScreen(
 ) {
     val results by viewModel.results.collectAsState()
     val totalVotes by viewModel.totalVotes.collectAsState()
+    val sentCount by viewModel.sentCount.collectAsState()
     val analysisState by viewModel.analysisState.collectAsState()
     val isExpired = poll.endTime != null && System.currentTimeMillis() > poll.endTime
     val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
@@ -171,6 +172,29 @@ fun PollResultsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
+                }
+            }
+
+            // ── Response rate ──
+            item {
+                if (sentCount > 0) {
+                    val rate = totalVotes.toFloat() / sentCount.toFloat()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text(
+                                text = "發出 $sentCount 人　·　回覆 $totalVotes 票　·　回覆率 ${"%.0f".format(rate * 100)}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
             }
 

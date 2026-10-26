@@ -406,9 +406,14 @@ function exportCsv(poll) {
   const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
   const total   = rawOpts.reduce((s, _, i) => s + (counts[String.fromCharCode(65 + i)] || 0), 0);
 
+  const sentCount    = (poll.sentRecipientIds || []).length;
+  const responseRate = sentCount > 0 ? ((total / sentCount) * 100).toFixed(1) + "%" : "—";
+
   const rows = [
     ["投票問題", poll.question],
     ["總票數", total],
+    ["發出人數", sentCount || "—"],
+    ["回覆率", responseRate],
     ["截止時間", poll.endTime ? new Date(poll.endTime).toLocaleString("zh-TW") : "無截止"],
     [],
     ["選項", "內容", "票數", "百分比"],
@@ -482,12 +487,27 @@ async function showVoteDetails(poll) {
       return `<tr><td>${name}</td><td>${phone}</td><td>${choices}</td><td style="color:#999;font-size:.8rem">${time}</td></tr>`;
     }).join("");
 
+    // Unreplied section
+    const sentIds    = new Set(poll.sentRecipientIds || []);
+    const repliedIds = new Set(rows.filter(v => v.recipientId).map(v => v.recipientId));
+    const unrepliedIds = [...sentIds].filter(id => !repliedIds.has(id));
+    const unrepliedRows = unrepliedIds.map(id => {
+      const rec   = recipientMap.get(id);
+      const name  = rec ? esc(rec.name || "（未命名）") : `<span style="color:#999">未知</span>`;
+      const phone = rec ? maskPhone(rec.phoneNumber || "") : `<span style="color:#999">—</span>`;
+      return `<tr><td>${name}</td><td>${phone}</td><td><span style="color:#aaa;font-size:.8rem">未回覆</span></td><td style="color:#aaa;font-size:.8rem">—</td></tr>`;
+    }).join("");
+
+    const rateText = sentIds.size > 0
+      ? `發出 ${sentIds.size} 人　·　回覆 ${rows.length} 票　·　回覆率 <strong>${Math.round(rows.length / sentIds.size * 100)}%</strong>`
+      : `共 <strong>${rows.length}</strong> 票`;
+
     body.innerHTML = `
-      <p style="font-size:.85rem;color:#666;margin-bottom:10px">共 <strong>${rows.length}</strong> 票</p>
+      <p style="font-size:.85rem;color:#666;margin-bottom:10px">${rateText}</p>
       <div style="overflow-x:auto">
         <table class="details-table">
           <thead><tr><th>姓名</th><th>電話</th><th>選擇</th><th>時間</th></tr></thead>
-          <tbody>${tableRows}</tbody>
+          <tbody>${tableRows}${unrepliedRows}</tbody>
         </table>
       </div>`;
   } catch (e) {
@@ -615,6 +635,18 @@ function updatePollCard(card, poll) {
     if (fill) fill.style.width = pct + "%";
     if (cnt)  cnt.innerHTML = `${count}<br><small>${pct}%</small>`;
   });
+
+  const sentCount = (poll.sentRecipientIds || []).length;
+  const rateEl = card.querySelector(`#rate-line-${poll.id}`);
+  if (rateEl) {
+    if (sentCount > 0) {
+      const pct = Math.round(total / sentCount * 100);
+      rateEl.innerHTML = `發出 ${sentCount} 人 &nbsp;·&nbsp; 回覆率 <strong>${pct}%</strong>`;
+      rateEl.style.display = "";
+    } else {
+      rateEl.style.display = "none";
+    }
+  }
 }
 
 function updatePieChart(pollId, poll) {
@@ -641,6 +673,7 @@ function buildPollCard(poll) {
   const total      = options.reduce((s, o) => s + o.count, 0);
   const isExpired  = poll.endTime && Date.now() > poll.endTime;
   const maxChoices = poll.maxChoices || 1;
+  const sentCount  = (poll.sentRecipientIds || []).length;
   const type       = chartTypes.get(poll.id) || "bar";
   const initTotal  = prevTotals.has(poll.id) ? prevTotals.get(poll.id) : 0;
 
@@ -661,6 +694,9 @@ function buildPollCard(poll) {
       總票數：<strong id="total-${poll.id}">${initTotal}</strong>
       ${endTimeStr ? ` &nbsp;·&nbsp; 截止：${endTimeStr}` : ""}
       ${maxChoices > 1 ? ` &nbsp;·&nbsp; 最多選 ${maxChoices} 個` : ""}
+    </p>
+    <p class="poll-rate" id="rate-line-${poll.id}" ${sentCount === 0 ? 'style="display:none"' : ""}>
+      發出 ${sentCount} 人 &nbsp;·&nbsp; 回覆率 <strong>${sentCount > 0 ? Math.round(initTotal / sentCount * 100) : 0}%</strong>
     </p>
 
     <div class="poll-actions">

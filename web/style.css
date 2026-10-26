@@ -170,9 +170,20 @@ main {
 .poll-meta {
   font-size: .8rem;
   color: #999;
-  margin-bottom: 20px;
+  margin-bottom: 6px;
 }
 .poll-meta strong { color: #555; }
+
+.poll-rate {
+  font-size: .8rem;
+  color: #888;
+  margin-bottom: 16px;
+  background: #f3e5f5;
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.poll-rate strong { color: #6a1b9a; }
 
 /* ── 帳號管理按鈕 ── */
 #admin-panel-btn {

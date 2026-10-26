@@ -2,6 +2,7 @@ package com.example.smsvote.data.repository
 
 import com.example.smsvote.data.model.Poll
 import com.example.smsvote.data.model.VoteRecord
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
@@ -45,6 +46,21 @@ class PollRepository {
     suspend fun getPollById(pollId: String): Poll? =
         polls.document(pollId).get().await().toPoll()
 
+    fun getPollByIdFlow(pollId: String): Flow<Poll?> = callbackFlow {
+        val listener = polls.document(pollId).addSnapshotListener { snapshot, error ->
+            if (error != null) { trySend(null); return@addSnapshotListener }
+            trySend(snapshot?.toPoll())
+        }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun addSentRecipients(pollId: String, recipientIds: List<String>) {
+        if (recipientIds.isEmpty()) return
+        polls.document(pollId)
+            .update("sentRecipientIds", FieldValue.arrayUnion(*recipientIds.toTypedArray()))
+            .await()
+    }
+
     suspend fun hasVoted(voterHash: String, pollId: String): Boolean =
         polls.document(pollId).collection("votes").document(voterHash).get().await().exists()
 
@@ -58,6 +74,7 @@ class PollRepository {
                         id = doc.getString("id") ?: doc.id,
                         pollId = pollId,
                         voterHash = doc.id,
+                        recipientId = doc.getString("recipientId") ?: "",
                         choices = (doc.get("choices") as? List<String>)
                             ?: doc.getString("choice")?.let { listOf(it) }
                             ?: emptyList(),
@@ -83,6 +100,8 @@ class PollRepository {
         val options = (get("options") as? List<String>)?.filter { it.isNotEmpty() }
             ?: listOfNotNull(getString("optionA"), getString("optionB"), getString("optionC"))
                 .filter { it.isNotEmpty() }
+        @Suppress("UNCHECKED_CAST")
+        val sentRecipientIds = (get("sentRecipientIds") as? List<String>) ?: emptyList()
         return Poll(
             id = getString("id") ?: id,
             question = getString("question") ?: return null,
@@ -91,18 +110,20 @@ class PollRepository {
             endTime = getLong("endTime"),
             createdBy = getString("createdBy") ?: "",
             createdAt = getLong("createdAt") ?: 0L,
-            isActive = getBoolean("isActive") ?: true
+            isActive = getBoolean("isActive") ?: true,
+            sentRecipientIds = sentRecipientIds
         )
     }
 
     private fun Poll.toMap() = mapOf(
         "id" to id, "question" to question, "options" to options,
         "maxChoices" to maxChoices, "endTime" to endTime,
-        "createdBy" to createdBy, "createdAt" to createdAt, "isActive" to isActive
+        "createdBy" to createdBy, "createdAt" to createdAt, "isActive" to isActive,
+        "sentRecipientIds" to sentRecipientIds
     )
 
     private fun VoteRecord.toMap() = mapOf(
         "id" to id, "pollId" to pollId, "voterHash" to voterHash,
-        "choices" to choices, "timestamp" to timestamp
+        "recipientId" to recipientId, "choices" to choices, "timestamp" to timestamp
     )
 }

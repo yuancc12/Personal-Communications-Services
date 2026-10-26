@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filterNotNull
 
 data class OptionResult(val label: String, val option: String, val count: Int, val percent: Float)
 
@@ -46,6 +47,11 @@ class PollResultsViewModel(val poll: Poll) : ViewModel() {
 
     val totalVotes: StateFlow<Int> = votesFlow.map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val sentCount: StateFlow<Int> = repo.getPollByIdFlow(poll.id)
+        .filterNotNull()
+        .map { it.sentRecipientIds.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), poll.sentRecipientIds.size)
 
     private val _analysisState = MutableStateFlow<AnalysisState>(AnalysisState.Idle)
     val analysisState: StateFlow<AnalysisState> = _analysisState.asStateFlow()
