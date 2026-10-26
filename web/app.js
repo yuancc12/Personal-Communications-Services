@@ -3,8 +3,8 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, query, orderBy,
-  onSnapshot, updateDoc, deleteDoc, getDoc, setDoc,
+  getFirestore, collection, doc, query, orderBy, where,
+  onSnapshot, updateDoc, deleteDoc, getDoc, setDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
 emailjs.init({ publicKey: "CaJ7sQbJPC3OCcRHw" });
@@ -428,6 +428,79 @@ function exportCsv(poll) {
   URL.revokeObjectURL(url);
 }
 
+// ── Vote details (admin only) ─────────────────────────────────
+async function showVoteDetails(poll) {
+  document.getElementById("_vote_details")?.remove();
+  const el = document.createElement("div");
+  el.id = "_vote_details";
+  el.className = "admin-overlay";
+  el.innerHTML = `
+    <div class="admin-drawer">
+      <div class="admin-drawer-header">
+        <h2>📋 投票明細</h2>
+        <button class="admin-close-btn">✕</button>
+      </div>
+      <p style="font-size:.9rem;color:#555;margin:0 0 12px">${esc(poll.question)}</p>
+      <div id="_vd_body"><div class="spinner" style="margin:32px auto"></div></div>
+    </div>`;
+  document.body.appendChild(el);
+  el.querySelector(".admin-close-btn").addEventListener("click", () => el.remove());
+  el.addEventListener("click", e => { if (e.target === el) el.remove(); });
+
+  try {
+    const [votesSnap, recipientsSnap] = await Promise.all([
+      getDocs(collection(db, "polls", poll.id, "votes")),
+      getDocs(collection(db, "recipients")),
+    ]);
+
+    const recipientMap = new Map();
+    recipientsSnap.forEach(d => recipientMap.set(d.id, d.data()));
+
+    const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+
+    const rows = votesSnap.docs
+      .map(d => ({ ...d.data(), _id: d.id }))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    const body = el.querySelector("#_vd_body");
+    if (rows.length === 0) {
+      body.innerHTML = `<p class="admin-empty">尚無投票記錄</p>`;
+      return;
+    }
+
+    const tableRows = rows.map(v => {
+      const rec    = recipientMap.get(v.recipientId || "");
+      const name   = rec ? esc(rec.name || "（未命名）") : `<span style="color:#999">未知</span>`;
+      const phone  = rec ? maskPhone(rec.phoneNumber || "") : `<span style="color:#999">—</span>`;
+      const choices = (v.choices || (v.choice ? [v.choice] : [])).map(c => {
+        const text = rawOpts[c.charCodeAt(0) - 65] || "";
+        return `<span class="choice-badge">${esc(c)}${text ? `&nbsp;${esc(text)}` : ""}</span>`;
+      }).join(" ");
+      const time = v.timestamp
+        ? new Date(v.timestamp).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "—";
+      return `<tr><td>${name}</td><td>${phone}</td><td>${choices}</td><td style="color:#999;font-size:.8rem">${time}</td></tr>`;
+    }).join("");
+
+    body.innerHTML = `
+      <p style="font-size:.85rem;color:#666;margin-bottom:10px">共 <strong>${rows.length}</strong> 票</p>
+      <div style="overflow-x:auto">
+        <table class="details-table">
+          <thead><tr><th>姓名</th><th>電話</th><th>選擇</th><th>時間</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    el.querySelector("#_vd_body").innerHTML =
+      `<p class="admin-msg error">讀取失敗：${esc(e.message)}</p>`;
+  }
+}
+
+function maskPhone(phone) {
+  if (!phone || phone.length < 6) return esc(phone);
+  return esc(phone.slice(0, 4) + "***" + phone.slice(-3));
+}
+
 // ── Confirmation dialog ───────────────────────────────────────
 function showConfirm(message, onOk) {
   document.getElementById("_dialog")?.remove();
@@ -473,21 +546,89 @@ function animateTo(pollId, target) {
 
 // ── Render ────────────────────────────────────────────────────
 function renderAll() {
-  chartInstances.forEach(c => c.destroy()); chartInstances.clear();
-
-  pollsContainer.innerHTML = "";
-  if (pollsData.length === 0) { noPollsEl.classList.remove("hidden"); return; }
+  if (pollsData.length === 0) {
+    pollsContainer.innerHTML = "";
+    noPollsEl.classList.remove("hidden");
+    return;
+  }
   noPollsEl.classList.add("hidden");
 
-  pollsData.forEach(poll => pollsContainer.appendChild(buildPollCard(poll)));
+  const newIds = new Set(pollsData.map(p => p.id));
 
-  // Animate totals and recreate pie charts after DOM is ready
+  // Remove cards for polls that no longer exist
+  pollsContainer.querySelectorAll(".poll-card").forEach(card => {
+    if (!newIds.has(card.dataset.pollId)) {
+      const id = card.dataset.pollId;
+      if (chartInstances.has(id)) { chartInstances.get(id).destroy(); chartInstances.delete(id); }
+      card.remove();
+    }
+  });
+
+  // Update existing cards or build new ones in order
+  pollsData.forEach((poll, index) => {
+    const existing = pollsContainer.querySelector(`[data-poll-id="${poll.id}"]`);
+    if (existing) {
+      updatePollCard(existing, poll);
+    } else {
+      const cards = pollsContainer.querySelectorAll(".poll-card");
+      const newCard = buildPollCard(poll);
+      if (index < cards.length) pollsContainer.insertBefore(newCard, cards[index]);
+      else pollsContainer.appendChild(newCard);
+    }
+  });
+
+  // Animate totals and update charts without destroying them
   pollsData.forEach(poll => {
     const counts = voteCounts.get(poll.id) || {};
     const total  = Object.values(counts).reduce((s, v) => s + v, 0);
     animateTo(poll.id, total);
-    if (chartTypes.get(poll.id) === "pie") createPieChart(poll.id, poll);
+    if (chartTypes.get(poll.id) === "pie") updatePieChart(poll.id, poll);
   });
+}
+
+function updatePollCard(card, poll) {
+  const counts    = voteCounts.get(poll.id) || {};
+  const rawOpts   = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+  const total     = rawOpts.reduce((s, _, i) => s + (counts[String.fromCharCode(65 + i)] || 0), 0);
+  const isExpired = poll.endTime && Date.now() > poll.endTime;
+
+  card.className = "poll-card" + (isExpired ? " poll-expired" : "");
+
+  const badge = card.querySelector(".badge");
+  if (badge) {
+    badge.textContent = isExpired ? "已截止" : "進行中";
+    badge.className = `badge ${isExpired ? "badge-expired" : "badge-active"}`;
+  }
+
+  const toggleBtn = card.querySelector(".btn-toggle-poll");
+  if (toggleBtn) {
+    toggleBtn.dataset.expired = String(isExpired);
+    toggleBtn.textContent = isExpired ? "🔓 重新開啟" : "🔒 截止投票";
+  }
+
+  card.querySelectorAll(".bar-row").forEach((row, i) => {
+    const label = String.fromCharCode(65 + i);
+    const count = counts[label] || 0;
+    const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+    const fill  = row.querySelector(".bar-fill");
+    const cnt   = row.querySelector(".bar-count");
+    if (fill) fill.style.width = pct + "%";
+    if (cnt)  cnt.innerHTML = `${count}<br><small>${pct}%</small>`;
+  });
+}
+
+function updatePieChart(pollId, poll) {
+  const chart = chartInstances.get(pollId);
+  if (!chart) { createPieChart(pollId, poll); return; }
+  const counts  = voteCounts.get(pollId) || {};
+  const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+  const total   = rawOpts.reduce((s, _, i) => s + (counts[String.fromCharCode(65 + i)] || 0), 0);
+  chart.data.datasets[0].data = rawOpts.map((_, i) => counts[String.fromCharCode(65 + i)] || 0);
+  chart.options.plugins.tooltip.callbacks.label = ctx => {
+    const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+    return `  ${ctx.parsed} 票（${pct}%）`;
+  };
+  chart.update("active");
 }
 
 function buildPollCard(poll) {
@@ -529,6 +670,7 @@ function buildPollCard(poll) {
         </button>` : ""}
       <button class="action-btn btn-export" data-poll-id="${poll.id}">⬇ 匯出 CSV</button>
       ${isAdmin() ? `
+        <button class="action-btn btn-details" data-poll-id="${poll.id}">📋 投票明細</button>
         <button class="action-btn btn-delete" data-poll-id="${poll.id}">🗑 刪除</button>` : ""}
     </div>
 
@@ -557,7 +699,7 @@ function buildPollCard(poll) {
   `;
 
   // Action buttons
-  card.querySelector(".btn-toggle-poll").addEventListener("click", async (e) => {
+  card.querySelector(".btn-toggle-poll")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
     try {
@@ -568,7 +710,9 @@ function buildPollCard(poll) {
 
   card.querySelector(".btn-export").addEventListener("click", () => exportCsv(poll));
 
-  card.querySelector(".btn-delete").addEventListener("click", () =>
+  card.querySelector(".btn-details")?.addEventListener("click", () => showVoteDetails(poll));
+
+  card.querySelector(".btn-delete")?.addEventListener("click", () =>
     deletePollConfirmed(poll.id, poll.question)
   );
 

@@ -88,11 +88,18 @@ class SmsReceiver : BroadcastReceiver() {
                 val voterHash = sha256("$senderPhone${pollId}SMSVote2024")
                 Log.d("SmsReceiver", "pollId=$pollId voterHash=$voterHash choices=$choices")
 
+                // Look up recipientId so admin can trace who voted
+                val recipientSnap = db.collection("recipients")
+                    .whereEqualTo("phoneNumber", senderPhone)
+                    .get().await()
+                val recipientId = recipientSnap.documents.firstOrNull()?.id ?: ""
+
                 val voteRef = db.collection("polls").document(pollId)
                     .collection("votes").document(voterHash)
                 val voteData = mapOf(
                     "pollId" to pollId,
                     "voterHash" to voterHash,
+                    "recipientId" to recipientId,
                     "choices" to choices,
                     "timestamp" to System.currentTimeMillis()
                 )

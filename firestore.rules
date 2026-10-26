@@ -50,9 +50,9 @@ service cloud.firestore {
                  || (isApproved() && resource.data.createdBy == uid());
       allow delete: if isAdmin();
 
-      // votes 子集合：簡訊投票者沒有 Firebase Auth，允許任何人寫
+      // votes 子集合：任何人可寫（SMS 投票者無 Auth），只有 admin 可讀完整明細
       match /votes/{voteId} {
-        allow read:  if isApproved();
+        allow read:  if isAdmin();
         allow write: if true;
       }
     }
