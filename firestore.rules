@@ -9,7 +9,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(uid())).data;
     }
     function isApproved() {
-      return signedIn() && userDoc().status == 'approved';
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(uid())) &&
+        (!('status' in userDoc()) || userDoc().status == 'approved');
     }
     function isAdmin() {
       return isApproved() &&
@@ -61,6 +63,18 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if true;  // 兌換時標記 used
       allow delete: if isAdmin();
+    }
+
+    // ── recipients ────────────────────────────────────────────────
+    match /recipients/{recipientId} {
+      allow read, write: if isApproved();
+    }
+
+    // ── mail（Firebase Trigger Email Extension）─────────────────
+    // Extension 自己讀/寫，只允許 admin 建立寄信任務
+    match /mail/{docId} {
+      allow create: if isAdmin();
+      allow read, update, delete: if false;
     }
   }
 }

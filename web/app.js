@@ -7,6 +7,8 @@ import {
   onSnapshot, updateDoc, deleteDoc, getDoc, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
+emailjs.init({ publicKey: "CaJ7sQbJPC3OCcRHw" });
+
 const firebaseConfig = {
   apiKey: "AIzaSyCCBguFTyBavOTPpDJNbt_0duMX8SmS148",
   authDomain: "smsvote-ca6e2.firebaseapp.com",
@@ -261,7 +263,7 @@ function refreshAdminPanel() {
           <option value="operator">操作員</option>
           <option value="admin">管理員</option>
         </select>
-        <button id="pre-submit" class="abtn abtn-approve">新增</button>
+        <button id="pre-submit" class="abtn abtn-approve">新增並發信</button>
       </div>
       <p id="pre-msg" class="admin-msg hidden"></p>
       <div id="pre-list"></div>`;
@@ -270,16 +272,35 @@ function refreshAdminPanel() {
       const role  = preTab.querySelector("#pre-role").value;
       const msg   = preTab.querySelector("#pre-msg");
       if (!email.includes("@")) { showPreMsg(msg, "請輸入有效的 Email", "error"); return; }
+      const submitBtn = preTab.querySelector("#pre-submit");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "發送中…";
       try {
+        const roleText = role === "admin" ? "管理員" : "操作員";
+
+        // 1. 寫入 pre_approved（登入自動核准）
         await setDoc(doc(db, "pre_approved", email), {
           email, role,
           createdBy: currentUser?.uid ?? "",
           createdAt: Date.now()
         });
+
+        // 2. 用 EmailJS 直接從瀏覽器發送邀請信
+        await emailjs.send("service_z7q6mq4", "template_z4nfj6r", {
+          to_email: email,
+          role_text: roleText,
+        }, { publicKey: "CaJ7sQbJPC3OCcRHw" });
+
         preTab.querySelector("#pre-email").value = "";
-        showPreMsg(msg, `✓ 已新增 ${email}（${role === "admin" ? "管理員" : "操作員"}）`, "ok");
+        showPreMsg(msg, `✓ 已新增並發送邀請信給 ${email}`, "ok");
         loadPreApproved(preTab.querySelector("#pre-list"));
-      } catch (e) { showPreMsg(msg, "失敗：" + e.message, "error"); }
+      } catch (e) {
+        console.error("emailjs error", e);
+        showPreMsg(msg, "失敗：" + (e.text || e.message || JSON.stringify(e)), "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "新增並發信";
+      }
     });
     loadPreApproved(preTab.querySelector("#pre-list"));
   }

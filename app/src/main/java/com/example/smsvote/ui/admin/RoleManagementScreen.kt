@@ -12,13 +12,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.smsvote.data.model.AppUser
@@ -48,9 +54,13 @@ fun RoleManagementScreen(
     viewModel: RoleManagementViewModel = viewModel()
 ) {
     val users by viewModel.users.collectAsState()
+    val preApprove by viewModel.preApprove.collectAsState()
+    val preApprovedList by viewModel.preApprovedList.collectAsState()
+    val invitations by viewModel.invitations.collectAsState()
     val pending = users.filter { it.isPending }
     val approved = users.filter { !it.isPending }
     val isSuperAdmin = currentUserRole == "super_admin"
+    val now = System.currentTimeMillis()
 
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
@@ -76,7 +86,168 @@ fun RoleManagementScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("建立邀請碼") }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // ── Pre-approve by email ──
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "預先核准 Email",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "對方登入時自動核准，不需等待審核",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = preApprove.email,
+                            onValueChange = viewModel::onPreApproveEmailChange,
+                            label = { Text("Email") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            isError = preApprove.errorMessage != null
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = preApprove.role == "operator",
+                                onClick = { viewModel.onPreApproveRoleChange("operator") },
+                                label = { Text("操作員") }
+                            )
+                            FilterChip(
+                                selected = preApprove.role == "admin",
+                                onClick = { viewModel.onPreApproveRoleChange("admin") },
+                                label = { Text("管理員") }
+                            )
+                        }
+                        if (preApprove.errorMessage != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                preApprove.errorMessage!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (preApprove.successMessage != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                preApprove.successMessage!!,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = viewModel::submitPreApprove,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !preApprove.isLoading
+                        ) {
+                            if (preApprove.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text("新增授權")
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // ── Pre-approved list ──
+            if (preApprovedList.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "已授權 Email（${preApprovedList.size} 筆）",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                items(preApprovedList, key = { "pre_${it.first}" }) { (email, role) ->
+                    val roleLabel = if (role == "admin") "管理員" else "操作員"
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(email, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                            Text(roleLabel, style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { viewModel.removePreApproved(email) }) {
+                            Text("移除", color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+            }
+
+            // ── Invite code history ──
+            if (invitations.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "我建立的邀請碼",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                items(invitations, key = { "inv_${it.token}" }) { inv ->
+                    val isExpired = now > inv.expiresAt
+                    val statusText = when {
+                        inv.used -> "✓ 已使用"
+                        isExpired -> "已過期"
+                        else -> "未使用"
+                    }
+                    val statusColor = when {
+                        inv.used -> MaterialTheme.colorScheme.primary
+                        isExpired -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(inv.token, style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium)
+                            Text(
+                                if (inv.role == "admin") "管理員" else "操作員",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(statusText, style = MaterialTheme.typography.labelSmall, color = statusColor)
+                    }
+                }
+                item { Spacer(Modifier.height(4.dp)); HorizontalDivider() }
             }
 
             // ── Pending users ──

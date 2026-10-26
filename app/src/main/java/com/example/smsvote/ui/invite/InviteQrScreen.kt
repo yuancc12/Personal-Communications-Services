@@ -4,7 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -26,6 +28,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+private const val APP_WEB_URL = "https://drive.google.com/file/d/1F8_lli67SFQpvOFL8aK0PU9xdGLzZnpH/view?usp=sharing"
 
 class InviteViewModel : ViewModel() {
     private val repository = InvitationRepository()
@@ -90,9 +94,14 @@ fun InviteQrScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // ── 邀請碼區塊 ──────────────────────────────────────
+            Text("邀請碼 QR Code", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+
             if (isSuperAdmin) {
                 Text("邀請角色", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
@@ -108,19 +117,18 @@ fun InviteQrScreen(
                         label = { Text("管理員") }
                     )
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
             } else {
-                Spacer(Modifier.height(8.dp))
                 Text(
                     "邀請對象將成為「操作員」",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
             if (isLoading) {
-                Spacer(Modifier.height(80.dp))
+                Spacer(Modifier.height(60.dp))
                 CircularProgressIndicator()
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -128,6 +136,7 @@ fun InviteQrScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.height(60.dp))
             } else if (token != null) {
                 ElevatedCard(shape = RoundedCornerShape(16.dp)) {
                     Column(
@@ -138,7 +147,7 @@ fun InviteQrScreen(
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "邀請 QR Code",
-                            modifier = Modifier.size(240.dp)
+                            modifier = Modifier.size(220.dp)
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
@@ -155,7 +164,7 @@ fun InviteQrScreen(
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     "截圖後傳給對方，讓他們在 App 內掃描",
                     style = MaterialTheme.typography.bodySmall,
@@ -163,14 +172,52 @@ fun InviteQrScreen(
                 )
             }
 
-            Spacer(Modifier.weight(1f))
-
+            Spacer(Modifier.height(8.dp))
             FilledTonalButton(
                 onClick = { viewModel.createInvitation(selectedRole) },
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) { Text("重新產生邀請碼") }
+
+            // ── App 安裝 QR Code ─────────────────────────────────
+            Spacer(Modifier.height(32.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(24.dp))
+            Text("App 安裝 QR Code", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "讓對方掃描，直接下載並安裝 APK",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            ElevatedCard(shape = RoundedCornerShape(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val installBitmap = remember { generateQrBitmap(APP_WEB_URL) }
+                    Image(
+                        bitmap = installBitmap.asImageBitmap(),
+                        contentDescription = "App 安裝 QR Code",
+                        modifier = Modifier.size(200.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        APP_WEB_URL,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "永久有效",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

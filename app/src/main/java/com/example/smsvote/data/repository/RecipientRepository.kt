@@ -15,7 +15,7 @@ class RecipientRepository {
         val listener = collection
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { close(error); return@addSnapshotListener }
+                if (error != null) { trySend(emptyList()); return@addSnapshotListener }
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     Recipient(
                         id = doc.getString("id") ?: doc.id,

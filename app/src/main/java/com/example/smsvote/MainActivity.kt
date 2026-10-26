@@ -36,10 +36,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.example.smsvote.auth.AuthManager
 import com.example.smsvote.data.model.Poll
 import com.example.smsvote.ui.AdminHomeScreen
 import com.example.smsvote.ui.LoginScreen
+import com.example.smsvote.ui.OnboardingScreen
+import com.example.smsvote.ui.hasSeenOnboarding
+import com.example.smsvote.ui.markOnboardingSeen
 import com.example.smsvote.ui.admin.AdminViewModel
 import com.example.smsvote.ui.admin.RoleManagementScreen
 import com.example.smsvote.ui.createpoll.CreatePollScreen
@@ -51,6 +55,7 @@ import com.example.smsvote.ui.theme.SMSVoteTheme
 import kotlinx.coroutines.launch
 
 sealed class Screen {
+    object Onboarding : Screen()
     object Home : Screen()
     object CreatePoll : Screen()
     object RoleManagement : Screen()
@@ -91,12 +96,23 @@ private fun AppRoot(authManager: AuthManager) {
         if (user != null) adminViewModel.loadUser()
     }
 
+    val context = LocalContext.current
+
     val receiveSmsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* 靜默處理 */ }
 
     LaunchedEffect(user) {
         if (user != null) receiveSmsLauncher.launch(Manifest.permission.RECEIVE_SMS)
+    }
+
+    LaunchedEffect(currentAppUser) {
+        val appUser = currentAppUser
+        if (appUser != null && !appUser.isPending &&
+            currentScreen == Screen.Home && !hasSeenOnboarding(context)
+        ) {
+            currentScreen = Screen.Onboarding
+        }
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -133,6 +149,13 @@ private fun AppRoot(authManager: AuthManager) {
             )
         } else {
             when (val screen = currentScreen) {
+                Screen.Onboarding -> OnboardingScreen(
+                    onFinish = {
+                        markOnboardingSeen(context)
+                        currentScreen = Screen.Home
+                    },
+                    modifier = Modifier.padding(innerPadding)
+                )
                 Screen.Home -> AdminHomeScreen(
                     displayName = user!!.displayName ?: "管理者",
                     userEmail = user!!.email ?: "",

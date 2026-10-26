@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
@@ -30,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,16 +63,46 @@ fun SendSmsScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) viewModel.sendSms(poll)
+        if (granted) viewModel.confirmSend()
     }
 
     LaunchedEffect(Unit) { viewModel.resetForNewSession() }
     LaunchedEffect(state.allSent) { if (state.allSent) onBack() }
 
+    // Confirmation dialog
+    if (state.showConfirmDialog) {
+        val selectedCount = selectedIds.size
+        val extraCount = state.extraNumbers.split(",", "\n")
+            .map { it.trim() }.count { it.isNotEmpty() }
+        val total = selectedCount + extraCount
+        AlertDialog(
+            onDismissRequest = viewModel::dismissConfirm,
+            title = { Text("確認發送") },
+            text = { Text("即將發送簡訊給 $total 位聯絡人，確定發送？") },
+            confirmButton = {
+                Button(onClick = {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.SEND_SMS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasPermission) viewModel.confirmSend()
+                    else permissionLauncher.launch(Manifest.permission.SEND_SMS)
+                }) { Text("發送") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissConfirm) { Text("取消") }
+            }
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("發送投票簡訊") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onPrimary) } }
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onPrimary) } },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+            )
         )
 
         LazyColumn(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -162,13 +194,7 @@ fun SendSmsScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 Button(
-                    onClick = {
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.SEND_SMS
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (hasPermission) viewModel.sendSms(poll)
-                        else permissionLauncher.launch(Manifest.permission.SEND_SMS)
-                    },
+                    onClick = { viewModel.requestSend(poll) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !state.isSending

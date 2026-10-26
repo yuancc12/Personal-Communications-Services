@@ -17,7 +17,7 @@ class PollRepository {
         val listener = polls
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { close(error); return@addSnapshotListener }
+                if (error != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snapshot?.documents?.mapNotNull { it.toPoll() } ?: emptyList())
             }
         awaitClose { listener.remove() }
@@ -28,7 +28,7 @@ class PollRepository {
             .whereEqualTo("createdBy", uid)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { close(error); return@addSnapshotListener }
+                if (error != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snapshot?.documents?.mapNotNull { it.toPoll() } ?: emptyList())
             }
         awaitClose { listener.remove() }

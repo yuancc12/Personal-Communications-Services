@@ -29,7 +29,9 @@ data class SendSmsUiState(
     val isSending: Boolean = false,
     val deliveryStates: List<SmsDeliveryState> = emptyList(),
     val allSent: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val showConfirmDialog: Boolean = false,
+    val pendingPoll: Poll? = null
 )
 
 class SendSmsViewModel(application: Application) : AndroidViewModel(application) {
@@ -59,6 +61,27 @@ class SendSmsViewModel(application: Application) : AndroidViewModel(application)
     fun resetForNewSession() {
         _uiState.update { SendSmsUiState() }
         _selectedIds.update { emptySet() }
+    }
+
+    fun requestSend(poll: Poll) {
+        val state = _uiState.value
+        val selectedRecipients = recipients.value.filter { it.id in _selectedIds.value }
+        val fromManual = state.extraNumbers
+            .split(",", "\n").map { it.trim() }.filter { it.isNotEmpty() }
+        val total = selectedRecipients.size + fromManual.size
+        if (total == 0) {
+            _uiState.update { it.copy(errorMessage = "請勾選聯絡人或在下方輸入電話號碼") }
+            return
+        }
+        _uiState.update { it.copy(showConfirmDialog = true, pendingPoll = poll, errorMessage = null) }
+    }
+
+    fun dismissConfirm() = _uiState.update { it.copy(showConfirmDialog = false, pendingPoll = null) }
+
+    fun confirmSend() {
+        val poll = _uiState.value.pendingPoll ?: return
+        _uiState.update { it.copy(showConfirmDialog = false, pendingPoll = null) }
+        sendSms(poll)
     }
 
     fun sendSms(poll: Poll) {
