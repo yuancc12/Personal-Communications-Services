@@ -7,7 +7,7 @@ import {
   onSnapshot, updateDoc, deleteDoc, getDoc, setDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
-emailjs.init({ publicKey: "CaJ7sQbJPC3OCcRHw" });
+emailjs.init({ publicKey: window.EMAILJS_PUBLIC_KEY });
 
 const firebaseConfig = {
   apiKey: "AIzaSyCCBguFTyBavOTPpDJNbt_0duMX8SmS148",
@@ -289,7 +289,7 @@ function refreshAdminPanel() {
         await emailjs.send("service_z7q6mq4", "template_z4nfj6r", {
           to_email: email,
           role_text: roleText,
-        }, { publicKey: "CaJ7sQbJPC3OCcRHw" });
+        }, { publicKey: window.EMAILJS_PUBLIC_KEY });
 
         preTab.querySelector("#pre-email").value = "";
         showPreMsg(msg, `✓ 已新增並發送邀請信給 ${email}`, "ok");

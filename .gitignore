@@ -10,3 +10,4 @@
 local.properties
 .claude/
 .firebase/
+web/config.js

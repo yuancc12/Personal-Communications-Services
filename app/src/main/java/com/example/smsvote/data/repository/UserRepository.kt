@@ -1,5 +1,6 @@
 package com.example.smsvote.data.repository
 
+import com.example.smsvote.BuildConfig
 import com.example.smsvote.data.model.AppUser
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -109,8 +110,8 @@ class UserRepository {
             val body = JSONObject().apply {
                 put("service_id", "service_z7q6mq4")
                 put("template_id", "template_z4nfj6r")
-                put("user_id", "CaJ7sQbJPC3OCcRHw")
-                put("accessToken", "Bj93gFxN8GXsCAkBdoJJg")
+                put("user_id", BuildConfig.EMAILJS_PUBLIC_KEY)
+                put("accessToken", BuildConfig.EMAILJS_PRIVATE_KEY)
                 put("template_params", JSONObject().apply {
                     put("to_email", toEmail)
                     put("role_text", roleText)
