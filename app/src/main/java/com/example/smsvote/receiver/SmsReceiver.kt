@@ -16,6 +16,12 @@ import java.security.MessageDigest
 
 class SmsReceiver : BroadcastReceiver() {
 
+    companion object {
+        // Deduplicate: same sender+body within 10 seconds = same SMS delivered twice
+        private val recentMessages = mutableMapOf<String, Long>()
+        private const val DEDUP_WINDOW_MS = 10_000L
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
@@ -24,6 +30,18 @@ class SmsReceiver : BroadcastReceiver() {
         val body = messages.joinToString("") { it.messageBody }.trim().lines().first().trim()
 
         Log.d("SmsReceiver", "收到簡訊 from=$senderPhone body=$body")
+
+        // Drop duplicates caused by Android delivering the same SMS twice (self-send / loopback)
+        val dedupKey = "$senderPhone|$body"
+        val now = System.currentTimeMillis()
+        synchronized(recentMessages) {
+            recentMessages.entries.removeIf { now - it.value > DEDUP_WINDOW_MS }
+            if (recentMessages.containsKey(dedupKey)) {
+                Log.d("SmsReceiver", "重複訊息，忽略")
+                return
+            }
+            recentMessages[dedupKey] = now
+        }
 
         val parts = body.split(" ")
         if (parts.size < 2) { Log.d("SmsReceiver", "格式錯誤，忽略"); return }

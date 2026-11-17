@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+  getRedirectResult, signOut, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, query, orderBy, where,
@@ -59,15 +60,29 @@ onAuthStateChanged(auth, (user) => {
   if (user) { verifyAccess(user); } else { showLogin(); }
 });
 
+let signingIn = false;
 loginBtn.addEventListener("click", async () => {
+  if (signingIn) return;
+  signingIn = true;
   loginError.classList.add("hidden");
+  loginBtn.disabled = true;
+  const provider = new GoogleAuthProvider();
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    await signInWithPopup(auth, provider);
   } catch (e) {
-    loginError.textContent = "登入失敗：" + e.message;
-    loginError.classList.remove("hidden");
+    if (e.code === "auth/popup-blocked" || e.code === "auth/popup-closed-by-user") {
+      await signInWithRedirect(auth, provider);
+    } else if (e.code !== "auth/cancelled-popup-request") {
+      loginError.textContent = "登入失敗：" + e.message;
+      loginError.classList.remove("hidden");
+    }
+  } finally {
+    signingIn = false;
+    loginBtn.disabled = false;
   }
 });
+
+getRedirectResult(auth).catch(() => {});
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
@@ -705,10 +720,13 @@ function buildPollCard(poll) {
           ${isExpired ? "🔓 重新開啟" : "🔒 截止投票"}
         </button>` : ""}
       <button class="action-btn btn-export" data-poll-id="${poll.id}">⬇ 匯出 CSV</button>
+      <button class="action-btn btn-ai" data-poll-id="${poll.id}">🤖 AI 分析</button>
       ${isAdmin() ? `
         <button class="action-btn btn-details" data-poll-id="${poll.id}">📋 投票明細</button>
         <button class="action-btn btn-delete" data-poll-id="${poll.id}">🗑 刪除</button>` : ""}
     </div>
+
+    <div id="ai-result-${poll.id}" class="ai-result hidden"></div>
 
     <div class="chart-toggle">
       <button class="toggle-btn ${type === "bar" ? "active" : ""}" data-type="bar">📊 長條圖</button>
@@ -745,6 +763,8 @@ function buildPollCard(poll) {
   });
 
   card.querySelector(".btn-export").addEventListener("click", () => exportCsv(poll));
+
+  card.querySelector(".btn-ai").addEventListener("click", () => runAiAnalysis(poll, card));
 
   card.querySelector(".btn-details")?.addEventListener("click", () => showVoteDetails(poll));
 
@@ -820,3 +840,58 @@ function createPieChart(pollId, poll) {
 
 const isAdmin = () => currentUserRole === "admin" || currentUserRole === "super_admin";
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+async function runAiAnalysis(poll, card) {
+  const resultEl = card.querySelector(`#ai-result-${poll.id}`);
+  const btn      = card.querySelector(".btn-ai");
+  const apiKey   = window.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
+    resultEl.textContent = "⚠️ 請在 config.js 設定 GEMINI_API_KEY";
+    resultEl.classList.remove("hidden");
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<span class="ai-loading">⏳ AI 分析中…</span>`;
+  resultEl.classList.remove("hidden");
+
+  const counts  = voteCounts.get(poll.id) || {};
+  const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
+  const total   = rawOpts.reduce((s, _, i) => s + (counts[String.fromCharCode(65 + i)] || 0), 0);
+
+  const optLines = rawOpts.map((text, i) => {
+    const key   = String.fromCharCode(65 + i);
+    const count = counts[key] || 0;
+    return `${key}. ${text}：${count} 票`;
+  }).join("\n");
+
+  const prompt = [
+    "你是一個投票結果分析師，請用繁體中文分析以下投票結果，回覆在 200 字以內，語氣簡潔專業：",
+    "",
+    `投票主題：${poll.question}`,
+    ...(poll.maxChoices > 1 ? [`投票方式：複選（最多選 ${poll.maxChoices} 個）`] : []),
+    `選項與得票（共 ${total} 票）：`,
+    optLines,
+    "",
+    "請依序提供：① 結果摘要 ② 主要趨勢 ③ 一句建議",
+  ].join("\n");
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "無法生成分析";
+    resultEl.innerHTML = `<strong>🤖 AI 分析</strong><p>${esc(text).replace(/\n/g, "<br>")}</p>`;
+  } catch (e) {
+    resultEl.innerHTML = `<span class="ai-error">分析失敗：${esc(e.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}

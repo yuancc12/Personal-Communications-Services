@@ -379,6 +379,24 @@ main {
 .btn-details { border-color: #ce93d8; color: #6a1b9a; }
 .btn-details:hover { background: #f3e5f5; }
 
+.btn-ai { border-color: #ffcc80; color: #e65100; }
+.btn-ai:hover { background: #fff3e0; }
+
+.ai-result {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  background: #fff8e1;
+  border-left: 4px solid #ffa000;
+  border-radius: 8px;
+  font-size: .9rem;
+  line-height: 1.6;
+  color: #333;
+}
+.ai-result strong { display: block; margin-bottom: 8px; color: #e65100; }
+.ai-result p { margin: 0; }
+.ai-loading { color: #888; font-style: italic; }
+.ai-error { color: #c62828; }
+
 /* ── 確認 Dialog ── */
 .dialog-overlay {
   position: fixed;
