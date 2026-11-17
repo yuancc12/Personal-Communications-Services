@@ -397,6 +397,37 @@ main {
 .ai-loading { color: #888; font-style: italic; }
 .ai-error { color: #c62828; }
 
+/* ── 攻擊模擬按鈕 ── */
+.btn-sim { border-color: #ce93d8; color: #6a1b9a; }
+.btn-sim:hover { background: #f3e5f5; }
+
+/* ── 攻擊模擬結果面板 ── */
+.sim-result {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  background: #1a1a2e;
+  border-left: 4px solid #9c27b0;
+  border-radius: 8px;
+  font-size: .88rem;
+  color: #eee;
+}
+.sim-title { display: block; margin-bottom: 10px; color: #ce93d8; font-size: .95rem; }
+.sim-running { color: #aaa; font-style: italic; }
+.sim-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+}
+.sim-ok   { background: rgba(6,214,160,.12); border-left: 3px solid #06d6a0; }
+.sim-fail { background: rgba(255,72,97,.12);  border-left: 3px solid #ff4861; }
+.sim-skip { background: rgba(255,255,255,.06); border-left: 3px solid #666; }
+.sim-label { font-weight: 600; color: #fff; }
+.sim-msg   { color: #ccc; }
+.sim-note  { margin: 10px 0 0; font-size: .78rem; color: #888; line-height: 1.5; }
+
 /* ── 確認 Dialog ── */
 .dialog-overlay {
   position: fixed;

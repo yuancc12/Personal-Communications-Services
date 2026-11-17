@@ -723,10 +723,12 @@ function buildPollCard(poll) {
       <button class="action-btn btn-ai" data-poll-id="${poll.id}">🤖 AI 分析</button>
       ${isAdmin() ? `
         <button class="action-btn btn-details" data-poll-id="${poll.id}">📋 投票明細</button>
+        <button class="action-btn btn-sim" data-poll-id="${poll.id}">🧪 攻擊模擬</button>
         <button class="action-btn btn-delete" data-poll-id="${poll.id}">🗑 刪除</button>` : ""}
     </div>
 
     <div id="ai-result-${poll.id}" class="ai-result hidden"></div>
+    <div id="sim-result-${poll.id}" class="sim-result hidden"></div>
 
     <div class="chart-toggle">
       <button class="toggle-btn ${type === "bar" ? "active" : ""}" data-type="bar">📊 長條圖</button>
@@ -765,6 +767,8 @@ function buildPollCard(poll) {
   card.querySelector(".btn-export").addEventListener("click", () => exportCsv(poll));
 
   card.querySelector(".btn-ai").addEventListener("click", () => runAiAnalysis(poll, card));
+
+  card.querySelector(".btn-sim")?.addEventListener("click", () => runFraudSimulation(poll, card));
 
   card.querySelector(".btn-details")?.addEventListener("click", () => showVoteDetails(poll));
 
@@ -840,6 +844,83 @@ function createPieChart(pollId, poll) {
 
 const isAdmin = () => currentUserRole === "admin" || currentUserRole === "super_admin";
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+async function runFraudSimulation(poll, card) {
+  const resultEl = card.querySelector(`#sim-result-${poll.id}`);
+  const btn      = card.querySelector(".btn-sim");
+  btn.disabled = true;
+
+  resultEl.innerHTML = `<div class="sim-running">⏳ 模擬攻擊中，請稍候…</div>`;
+  resultEl.classList.remove("hidden");
+
+  const prefix = `_sim_${Date.now()}`;
+  const results = [];
+
+  // ── Test 1: 重複投票（同 voterHash 寫兩次）────────────────────
+  const dupHash = prefix + "_dup";
+  const dupRef  = doc(db, "polls", poll.id, "votes", dupHash);
+  const vote1   = { pollId: poll.id, voterHash: dupHash, choices: ["A"], timestamp: Date.now(), _simTest: true };
+  const vote2   = { pollId: poll.id, voterHash: dupHash, choices: ["B"], timestamp: Date.now(), _simTest: true };
+  try {
+    await setDoc(dupRef, vote1);
+    try {
+      await setDoc(dupRef, vote2);
+      results.push({ label: "重複投票（同一 hash）", ok: false, msg: "⚠️ 成功覆蓋同一票 — Firestore 規則需加 allow create only" });
+    } catch {
+      results.push({ label: "重複投票（同一 hash）", ok: true, msg: "✅ 第二次寫入被 Firestore 規則擋住" });
+    }
+    await deleteDoc(dupRef).catch(() => {});
+  } catch {
+    results.push({ label: "重複投票（同一 hash）", ok: true, msg: "✅ Firestore 規則不允許從 Web 直接寫票" });
+  }
+
+  // ── Test 2: 截止後強寫票 ──────────────────────────────────────
+  if (poll.endTime && Date.now() > poll.endTime) {
+    const expHash = prefix + "_expired";
+    const expRef  = doc(db, "polls", poll.id, "votes", expHash);
+    try {
+      await setDoc(expRef, { pollId: poll.id, voterHash: expHash, choices: ["A"], timestamp: Date.now(), _simTest: true });
+      results.push({ label: "截止後強寫票", ok: false, msg: "⚠️ 成功寫入已截止投票 — Firestore 規則未驗證 endTime" });
+      await deleteDoc(expRef).catch(() => {});
+    } catch {
+      results.push({ label: "截止後強寫票", ok: true, msg: "✅ Firestore 規則擋住截止後投票" });
+    }
+  } else {
+    results.push({ label: "截止後強寫票", ok: null, msg: "⏭ 此投票尚未截止，跳過" });
+  }
+
+  // ── Test 3: 大量灌票（5 筆不同 hash）─────────────────────────
+  let spamCount = 0;
+  const spamRefs = [];
+  for (let i = 0; i < 5; i++) {
+    const h = prefix + `_spam${i}`;
+    const r = doc(db, "polls", poll.id, "votes", h);
+    try {
+      await setDoc(r, { pollId: poll.id, voterHash: h, choices: ["A"], timestamp: Date.now(), _simTest: true });
+      spamCount++;
+      spamRefs.push(r);
+    } catch { break; }
+  }
+  for (const r of spamRefs) await deleteDoc(r).catch(() => {});
+  if (spamCount === 0) {
+    results.push({ label: "偽造灌票 × 5", ok: true, msg: "✅ Firestore 規則擋住所有偽造票" });
+  } else {
+    results.push({ label: "偽造灌票 × 5", ok: false, msg: `⚠️ 成功寫入 ${spamCount}/5 筆假票（已清除）— 建議加 Firestore 寫入條件` });
+  }
+
+  // ── Render ────────────────────────────────────────────────────
+  const rows = results.map(r => {
+    const cls = r.ok === true ? "sim-ok" : r.ok === false ? "sim-fail" : "sim-skip";
+    return `<div class="sim-row ${cls}">
+      <span class="sim-label">${r.label}</span>
+      <span class="sim-msg">${r.msg}</span>
+    </div>`;
+  }).join("");
+  resultEl.innerHTML = `<strong class="sim-title">🧪 攻擊模擬結果</strong>${rows}
+    <p class="sim-note">所有測試資料已從 Firestore 清除。SMS 層防護由 Android SmsReceiver 處理，不在此測試範圍。</p>`;
+
+  btn.disabled = false;
+}
 
 async function runAiAnalysis(poll, card) {
   const resultEl = card.querySelector(`#ai-result-${poll.id}`);
