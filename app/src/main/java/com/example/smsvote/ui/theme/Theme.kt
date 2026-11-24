@@ -8,14 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary              = Blue600,
+    primary              = Blue700,
     onPrimary            = Color.White,
     primaryContainer     = Blue100,
     onPrimaryContainer   = Blue800,
-    secondary            = Violet600,
+    secondary            = Amber600,          // 金色（原本是紫色）
     onSecondary          = Color.White,
-    secondaryContainer   = Violet100,
-    onSecondaryContainer = Color(0xFF4C1D95),
+    secondaryContainer   = Amber100,          // 淡金（原本是淡紫）
+    onSecondaryContainer = Color(0xFF451A03),
     tertiary             = Emerald600,
     onTertiary           = Color.White,
     background           = Slate100,
@@ -31,10 +31,10 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary              = Violet200,
-    onPrimary            = Color(0xFF4C1D95),
-    primaryContainer     = Color(0xFF4338CA),
-    onPrimaryContainer   = Violet100,
+    primary              = Amber200,          // 淡金
+    onPrimary            = Color(0xFF451A03),
+    primaryContainer     = Color(0xFF1565C0),
+    onPrimaryContainer   = Blue100,
     secondary            = Blue100,
     onSecondary          = Blue800,
     background           = Slate900,

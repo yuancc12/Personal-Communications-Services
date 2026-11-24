@@ -11,8 +11,9 @@
   <!-- 登入區塊 -->
   <div id="login-section">
     <div class="card">
+      <div class="card-logo">🗳️</div>
       <h1>SMS 匿名投票</h1>
-      <p class="subtitle">管理者登入後查看即時結果</p>
+      <p class="subtitle">管理者登入後查看即時投票結果</p>
       <button id="login-btn">使用 Google 帳號登入</button>
       <p id="login-error" class="error hidden"></p>
     </div>
@@ -39,11 +40,18 @@
   <!-- 結果區塊（已核准才顯示） -->
   <div id="results-section" class="hidden">
     <header>
-      <h1>SMS 匿名投票 — 即時結果</h1>
+      <h1>SMS 匿名投票</h1>
       <div class="user-info">
         <span id="user-name"></span>
         <span id="user-role-badge" class="role-badge"></span>
+        <div id="theme-switcher" title="切換主題">
+          <button class="theme-dot active" data-theme=""        style="background:linear-gradient(135deg,#1565C0,#F9A825)" title="藍金"></button>
+          <button class="theme-dot"        data-theme="emerald" style="background:linear-gradient(135deg,#00695C,#FFB300)" title="翠金"></button>
+          <button class="theme-dot"        data-theme="crimson" style="background:linear-gradient(135deg,#B71C1C,#FFA000)" title="深紅金"></button>
+          <button class="theme-dot"        data-theme="indigo"  style="background:linear-gradient(135deg,#283593,#26C6DA)" title="靛青"></button>
+        </div>
         <button id="admin-panel-btn" class="hidden">👥 帳號管理</button>
+        <button id="help-btn">📖 說明</button>
         <button id="logout-btn">登出</button>
       </div>
     </header>

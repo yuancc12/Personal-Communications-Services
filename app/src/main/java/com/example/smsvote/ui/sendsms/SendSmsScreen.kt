@@ -185,9 +185,9 @@ fun SendSmsScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(Modifier.height(8.dp))
-                if (state.errorMessage != null) {
+                state.errorMessage?.let { msg ->
                     Text(
-                        text = state.errorMessage!!,
+                        text = msg,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )

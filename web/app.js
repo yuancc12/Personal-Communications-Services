@@ -8,7 +8,51 @@ import {
   onSnapshot, updateDoc, deleteDoc, getDoc, setDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
-emailjs.init({ publicKey: window.EMAILJS_PUBLIC_KEY });
+// EmailJS 用 fetch 直接呼叫，不依賴 SDK 初始化
+async function sendInviteEmail(toEmail, roleText) {
+  const publicKey  = window.EMAILJS_PUBLIC_KEY  || "";
+  const privateKey = window.EMAILJS_PRIVATE_KEY || "";
+  if (!publicKey) throw new Error("EmailJS public key 未設定，請在 config.js 填入 EMAILJS_PUBLIC_KEY");
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      service_id:     "service_z7q6mq4",
+      template_id:    "template_z4nfj6r",
+      user_id:        publicKey,
+      accessToken:    privateKey,
+      template_params: { to_email: toEmail, role_text: roleText }
+    })
+  });
+  const text = await res.text();
+  if (!res.ok) throw { status: res.status, text };
+}
+
+// ── 主題切換 ──────────────────────────────────────────────────
+(function () {
+  const saved = localStorage.getItem("ui_theme") || "";
+  if (saved) document.body.dataset.theme = saved;
+
+  document.addEventListener("click", e => {
+    const dot = e.target.closest(".theme-dot");
+    if (!dot) return;
+    const theme = dot.dataset.theme || "";
+    document.body.dataset.theme = theme;
+    localStorage.setItem("ui_theme", theme);
+    document.querySelectorAll(".theme-dot").forEach(d =>
+      d.classList.toggle("active", (d.dataset.theme || "") === theme)
+    );
+  });
+})();
+
+// Load AI provider + key from localStorage
+(function () {
+  const p = localStorage.getItem("ai_provider") || "gemini";
+  const k = localStorage.getItem("ai_key_" + p) || "";
+  window._aiProvider = p;
+  window._aiApiKey   = k;
+  if (p === "gemini" && k) window.GEMINI_API_KEY = k;
+})();
 
 const firebaseConfig = {
   apiKey: "AIzaSyCCBguFTyBavOTPpDJNbt_0duMX8SmS148",
@@ -52,7 +96,7 @@ const prevTotals     = new Map();   // pollId -> last rendered total (for animat
 const animFrames     = new Map();   // pollId -> requestAnimationFrame id
 let unsubscribePolls = null;
 
-const CHART_COLORS = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A", "#C62828"];
+const CHART_COLORS = ["#1565C0", "#00897B", "#F9A825", "#E53935", "#0288D1"];
 
 // ── Auth ──────────────────────────────────────────────────────
 onAuthStateChanged(auth, (user) => {
@@ -122,7 +166,10 @@ function showResults(user, role) {
     adminPanelBtn.onclick = openAdminPanel;
     subscribeToUsers();
   }
+  document.getElementById("help-btn").onclick = () => openHelpModal(false);
   subscribeToPolls();
+  // 自動顯示操作說明（除非已勾選不再顯示）
+  setTimeout(() => openHelpModal(true), 600);
 }
 
 async function verifyAccess(user) {
@@ -160,6 +207,12 @@ async function verifyAccess(user) {
 
     if (!data.status && role === "super_admin") {
       updateDoc(doc(db, "users", user.uid), { status: "approved" }).catch(() => {});
+    }
+
+    if (status === "rejected") {
+      showDenied("🚫", "帳號已停用",
+        `帳號 ${user.email} 已被管理員停用。\n如有疑問，請聯絡管理員。`);
+      return;
     }
 
     if (status !== "approved") {
@@ -215,10 +268,12 @@ function openAdminPanel() {
         <button class="atab active" data-tab="pending">待審核</button>
         <button class="atab" data-tab="preapprove">預先授權</button>
         <button class="atab" data-tab="allusers">所有帳號</button>
+        <button class="atab" data-tab="settings">⚙️ 設定</button>
       </div>
       <div id="admin-tab-pending"    class="admin-tab-content"></div>
       <div id="admin-tab-preapprove" class="admin-tab-content hidden"></div>
       <div id="admin-tab-allusers"   class="admin-tab-content hidden"></div>
+      <div id="admin-tab-settings"   class="admin-tab-content hidden"></div>
     </div>`;
   document.body.appendChild(el);
 
@@ -293,25 +348,35 @@ function refreshAdminPanel() {
       try {
         const roleText = role === "admin" ? "管理員" : "操作員";
 
-        // 1. 寫入 pre_approved（登入自動核准）
+        // 1. 寫入 pre_approved（登入自動核准）— 一定要成功
         await setDoc(doc(db, "pre_approved", email), {
           email, role,
           createdBy: currentUser?.uid ?? "",
           createdAt: Date.now()
         });
-
-        // 2. 用 EmailJS 直接從瀏覽器發送邀請信
-        await emailjs.send("service_z7q6mq4", "template_z4nfj6r", {
-          to_email: email,
-          role_text: roleText,
-        }, { publicKey: window.EMAILJS_PUBLIC_KEY });
-
         preTab.querySelector("#pre-email").value = "";
-        showPreMsg(msg, `✓ 已新增並發送邀請信給 ${email}`, "ok");
         loadPreApproved(preTab.querySelector("#pre-list"));
+
+        // 2. 嘗試發邀請信（非關鍵，失敗只顯示警告）
+        try {
+          await sendInviteEmail(email, roleText);
+          showPreMsg(msg, `✓ 已新增並發送邀請信給 ${email}`, "ok");
+        } catch (emailErr) {
+          console.error("❌ email error — status:", emailErr.status, "| text:", emailErr.text, "| full:", emailErr);
+          const status = emailErr.status || "";
+          const detail = emailErr.text || emailErr.message || JSON.stringify(emailErr);
+          const hint = detail.toLowerCase().includes("publickeyisrequired") || detail.toLowerCase().includes("publickey")
+            ? "（EmailJS 公鑰未設定，請確認 config.js 的 EMAILJS_PUBLIC_KEY）"
+            : status === 400
+              ? "（請至 EmailJS 後台確認 Template 變數名稱是否正確）"
+              : status === 429 || detail.includes("limit")
+                ? "（已達本月免費額度 200 封上限）"
+                : "";
+          showPreMsg(msg, `✓ 已新增 ${email}，但邀請信失敗${hint}：${detail}`, "warn");
+        }
       } catch (e) {
-        console.error("emailjs error", e);
-        showPreMsg(msg, "失敗：" + (e.text || e.message || JSON.stringify(e)), "error");
+        console.error("firestore error", e);
+        showPreMsg(msg, "新增失敗：" + (e.message || JSON.stringify(e)), "error");
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = "新增並發信";
@@ -324,7 +389,7 @@ function refreshAdminPanel() {
   const allTab = el.querySelector("#admin-tab-allusers");
   const roleLabel = r => ({ super_admin: "👑 總管理員", admin: "⭐ 管理員", operator: "操作員" }[r] ?? r);
   const approved  = usersData.filter(u => u.status === "approved");
-  allTab.innerHTML = approved.length === 0 ? `<p class="admin-empty">尚無已核准帳號</p>` :
+  allTab.innerHTML = (approved.length === 0 ? `<p class="admin-empty">尚無已核准帳號</p>` :
     approved.map(u => `
       <div class="admin-user-row">
         <div class="admin-user-info">
@@ -332,7 +397,71 @@ function refreshAdminPanel() {
           <span class="admin-user-email">${esc(u.email || "")}</span>
         </div>
         <span class="role-badge role-${u.role}">${roleLabel(u.role)}</span>
-      </div>`).join("");
+        ${u.role !== "super_admin" ? `<button class="abtn abtn-reject allusers-remove-btn" data-uid="${u.id}" title="移除此帳號" style="margin-left:4px">移除</button>` : ""}
+      </div>`).join("")) + `<p id="allusers-msg" class="admin-msg hidden" style="margin-top:8px"></p>`;
+  allTab.querySelectorAll(".allusers-remove-btn").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const name = btn.closest(".admin-user-row").querySelector(".admin-user-name").textContent;
+      const msgEl = allTab.querySelector("#allusers-msg");
+      showConfirm(`確定要停用「${name}」的帳號？對方將無法再登入，此動作可聯絡管理員復原。`,
+        () => removeApprovedUser(btn.dataset.uid, msgEl));
+    })
+  );
+
+  // ── Tab: 設定 ──
+  const settingsTab = el.querySelector("#admin-tab-settings");
+  if (!settingsTab.querySelector(".settings-form")) {
+    const providerNames = { gemini: "Gemini API Key（Google AI Studio）", openai: "API Key（OpenAI）", claude: "API Key（Anthropic）" };
+    settingsTab.innerHTML = `
+      <p class="admin-hint">設定 AI 分析助理的服務與 API Key，Key 只儲存在你的瀏覽器本機。</p>
+      <div class="settings-form">
+        <div class="settings-row">
+          <label>AI 服務</label>
+          <select id="settings-provider">
+            <option value="gemini">🔵 Gemini（Google）</option>
+            <option value="openai">🟢 GPT（OpenAI）</option>
+            <option value="claude">🟠 Claude（Anthropic）</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label id="settings-key-label">${providerNames[window._aiProvider || "gemini"]}</label>
+          <input type="password" id="settings-key-input" placeholder="貼上 API Key…" autocomplete="off" />
+        </div>
+        <button id="settings-save-btn" class="abtn abtn-approve">💾 儲存</button>
+        <p id="settings-msg" class="admin-msg hidden"></p>
+      </div>`;
+
+    const providerSel = settingsTab.querySelector("#settings-provider");
+    const keyInput    = settingsTab.querySelector("#settings-key-input");
+    const keyLabel    = settingsTab.querySelector("#settings-key-label");
+    const saveBtn     = settingsTab.querySelector("#settings-save-btn");
+    const settingsMsg = settingsTab.querySelector("#settings-msg");
+
+    // Load saved values
+    providerSel.value = window._aiProvider || "gemini";
+    keyInput.value    = localStorage.getItem("ai_key_" + providerSel.value) || "";
+    keyLabel.textContent = providerNames[providerSel.value];
+
+    providerSel.addEventListener("change", () => {
+      keyLabel.textContent = providerNames[providerSel.value];
+      keyInput.value = localStorage.getItem("ai_key_" + providerSel.value) || "";
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const p = providerSel.value;
+      const k = keyInput.value.trim();
+      if (!k) { settingsMsg.textContent = "請輸入 API Key"; settingsMsg.className = "admin-msg error"; settingsMsg.classList.remove("hidden"); return; }
+      localStorage.setItem("ai_provider", p);
+      localStorage.setItem("ai_key_" + p, k);
+      window._aiProvider = p;
+      window._aiApiKey   = k;
+      if (p === "gemini") window.GEMINI_API_KEY = k;
+      settingsMsg.textContent = "✓ 已儲存";
+      settingsMsg.className = "admin-msg ok";
+      settingsMsg.classList.remove("hidden");
+      setTimeout(() => settingsMsg.classList.add("hidden"), 3000);
+    });
+  }
 }
 
 async function loadPreApproved(container) {
@@ -369,7 +498,21 @@ async function approveUserWeb(uid) {
 }
 
 async function rejectUserWeb(uid) {
+  // 待審核帳號：直接刪除（此人從未被核准過，可重新申請）
   await deleteDoc(doc(db, "users", uid));
+}
+
+async function removeApprovedUser(uid, msgEl) {
+  // 已核准帳號：軟刪除（設 rejected），防止用戶重整後自動重建 pending
+  try {
+    await updateDoc(doc(db, "users", uid), { status: "rejected" });
+  } catch (e) {
+    if (msgEl) {
+      msgEl.textContent = "移除失敗：" + (e.message || JSON.stringify(e));
+      msgEl.className = "admin-msg error";
+      msgEl.classList.remove("hidden");
+    }
+  }
 }
 
 // ── Firestore reads ───────────────────────────────────────────
@@ -701,6 +844,8 @@ function buildPollCard(poll) {
   card.dataset.pollId = poll.id;
 
   card.innerHTML = `
+    <div class="poll-card-accent"></div>
+    <div class="poll-card-inner">
     <div class="poll-header">
       <h2>${esc(poll.question)}</h2>
       <span class="badge ${isExpired ? "badge-expired" : "badge-active"}">${isExpired ? "已截止" : "進行中"}</span>
@@ -751,6 +896,7 @@ function buildPollCard(poll) {
     </div>
     <div class="chart-canvas-wrapper" ${type === "bar" ? 'style="display:none"' : ""}>
       <canvas id="chart-${poll.id}"></canvas>
+    </div>
     </div>
   `;
 
@@ -923,27 +1069,27 @@ async function runFraudSimulation(poll, card) {
 }
 
 async function runAiAnalysis(poll, card) {
-  const resultEl = card.querySelector(`#ai-result-${poll.id}`);
-  const btn      = card.querySelector(".btn-ai");
-  const apiKey   = window.GEMINI_API_KEY;
+  const resultEl  = card.querySelector(`#ai-result-${poll.id}`);
+  const btn       = card.querySelector(".btn-ai");
+  const provider  = window._aiProvider || localStorage.getItem("ai_provider") || "gemini";
+  const apiKey    = window._aiApiKey   || localStorage.getItem("ai_key_" + provider) || window.GEMINI_API_KEY;
+
   if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
-    resultEl.textContent = "⚠️ 請在 config.js 設定 GEMINI_API_KEY";
+    resultEl.textContent = "⚠️ 請在「帳號管理 → ⚙️ 設定」輸入 AI API Key";
     resultEl.classList.remove("hidden");
     return;
   }
 
   btn.disabled = true;
-  resultEl.innerHTML = `<span class="ai-loading">⏳ AI 分析中…</span>`;
+  resultEl.innerHTML = `<span class="ai-loading">⏳ AI 分析中（${provider}）…</span>`;
   resultEl.classList.remove("hidden");
 
   const counts  = voteCounts.get(poll.id) || {};
   const rawOpts = poll.options || [poll.optionA, poll.optionB, poll.optionC].filter(Boolean);
   const total   = rawOpts.reduce((s, _, i) => s + (counts[String.fromCharCode(65 + i)] || 0), 0);
-
   const optLines = rawOpts.map((text, i) => {
-    const key   = String.fromCharCode(65 + i);
-    const count = counts[key] || 0;
-    return `${key}. ${text}：${count} 票`;
+    const key = String.fromCharCode(65 + i);
+    return `${key}. ${text}：${counts[key] || 0} 票`;
   }).join("\n");
 
   const prompt = [
@@ -958,21 +1104,93 @@ async function runAiAnalysis(poll, card) {
   ].join("\n");
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
+    let text;
+    if (provider === "openai") {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "無法生成分析";
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 600 }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`HTTP ${res.status}: ${e.error?.message || ""}`); }
+      const data = await res.json();
+      text = data.choices?.[0]?.message?.content ?? "無法生成分析";
+    } else if (provider === "claude") {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`HTTP ${res.status}: ${e.error?.message || ""}`); }
+      const data = await res.json();
+      text = data.content?.[0]?.text ?? "無法生成分析";
+    } else {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "無法生成分析";
+    }
     resultEl.innerHTML = `<strong>🤖 AI 分析</strong><p>${esc(text).replace(/\n/g, "<br>")}</p>`;
   } catch (e) {
     resultEl.innerHTML = `<span class="ai-error">分析失敗：${esc(e.message)}</span>`;
   } finally {
     btn.disabled = false;
   }
+}
+
+function helpStep(num, emoji, title, where, desc) {
+  return `<div class="help-step">
+    <div class="help-step-num">${num}</div>
+    <div class="help-step-content">
+      <strong>${emoji} ${title}</strong>
+      <span class="help-where">${where}</span>
+      <p>${desc}</p>
+    </div>
+  </div>`;
+}
+
+function openHelpModal(autoShow = false) {
+  if (document.getElementById("_help_modal")) return;
+  if (autoShow && localStorage.getItem("help_dismissed") === "1") return;
+
+  const el = document.createElement("div");
+  el.id = "_help_modal";
+  el.className = "dialog-overlay help-overlay";
+  el.innerHTML = `
+    <div class="help-modal">
+      <div class="help-header">
+        <h2>📖 操作說明</h2>
+        <button class="admin-close-btn" id="help-close">✕</button>
+      </div>
+      <div class="help-body">
+        ${helpStep(1,"🗳️","建立投票","App 投票頁 → 右下角「＋ 建立投票」","輸入題目與選項（A/B/C…），可設截止時間與複選上限。每個選項以換行分隔，系統自動編號。")}
+        ${helpStep(2,"📋","新增投票對象","App 底部 → 聯絡人 → 新增","新增受訪者手機號碼（+886 格式）建立聯絡人名冊，支援批次管理。")}
+        ${helpStep(3,"📱","發送 SMS 通知","App 投票卡片 → 「發送通知」","選擇聯絡人後確認，系統透過裝置 SIM 卡發送含題目、選項代碼及回覆說明的 SMS。")}
+        ${helpStep(4,"💬","受訪者回覆 SMS","受訪者自行回覆即可","受訪者回傳「A」或「B,C」（複選）到同一號碼，系統自動解析計票。重複回覆以最後一次為準，完全匿名。")}
+        ${helpStep(5,"📊","即時查看結果","本網頁 或 App 底部 → 結果","即時票數與圖表，可切換長條圖 / 圓餅圖，支援匯出 PDF 完整報告。")}
+        ${helpStep(6,"🤖","AI 智能分析","結果卡片 → 「🤖 AI 分析」按鈕","AI 自動生成摘要、趨勢與建議。需先在「帳號管理 → ⚙️ 設定」選擇服務（Gemini / GPT / Claude）並輸入 API Key。")}
+        ${helpStep(7,"👥","帳號管理","右上角 → 「👥 帳號管理」","可審核待批帳號、預先授權 Email、查看所有帳號、移除帳號、設定 AI Provider。")}
+      </div>
+      <div class="help-footer">
+        <span class="help-tip">下次可點右上角「📖 說明」重新查看</span>
+        <button class="help-close-btn" id="help-close-btn">知道了 ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+
+  const close = () => {
+    localStorage.setItem("help_dismissed", "1");
+    el.remove();
+  };
+  el.querySelector("#help-close").addEventListener("click", close);
+  el.querySelector("#help-close-btn").addEventListener("click", close);
+  el.addEventListener("click", e => { if (e.target === el) close(); });
 }

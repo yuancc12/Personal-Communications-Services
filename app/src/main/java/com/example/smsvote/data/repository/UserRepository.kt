@@ -110,8 +110,8 @@ class UserRepository {
             val body = JSONObject().apply {
                 put("service_id", "service_z7q6mq4")
                 put("template_id", "template_z4nfj6r")
-                put("user_id", BuildConfig.EMAILJS_PUBLIC_KEY)
-                put("accessToken", BuildConfig.EMAILJS_PRIVATE_KEY)
+                put("user_id", BuildConfig.EMAILJS_PUBLIC_KEY.ifBlank { "Eu8jV6FwMgEMPhj_x" })
+                put("accessToken", BuildConfig.EMAILJS_PRIVATE_KEY.ifBlank { "6pvfCyso98CyapQqb3X3R" })
                 put("template_params", JSONObject().apply {
                     put("to_email", toEmail)
                     put("role_text", roleText)

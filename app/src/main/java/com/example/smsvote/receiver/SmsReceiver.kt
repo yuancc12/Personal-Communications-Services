@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
+import java.security.SecureRandom
 
 class SmsReceiver : BroadcastReceiver() {
 
@@ -125,7 +126,7 @@ class SmsReceiver : BroadcastReceiver() {
         phoneHash: String,
         body: String,
     ) {
-        val otp = (100000..999999).random().toString()
+        val otp = (SecureRandom().nextInt(900000) + 100000).toString()
         db.collection("otpPending").document(phoneHash).set(
             mapOf(
                 "otp" to otp,

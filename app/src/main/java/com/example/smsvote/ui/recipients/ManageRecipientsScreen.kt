@@ -28,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -126,9 +125,9 @@ fun ManageRecipientsScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
-            if (state.errorMessage != null) {
+            state.errorMessage?.let { msg ->
                 Spacer(Modifier.height(4.dp))
-                Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(8.dp))
             Button(onClick = viewModel::addRecipient, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {

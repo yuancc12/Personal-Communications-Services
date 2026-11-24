@@ -48,6 +48,30 @@ fun markOnboardingSeen(context: Context) =
     context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
         .edit().putBoolean("onboarding_seen", true).apply()
 
+fun getAiProvider(context: Context): String =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .getString("ai_provider", "gemini") ?: "gemini"
+
+fun saveAiProvider(context: Context, provider: String) =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .edit().putString("ai_provider", provider).apply()
+
+fun getAiApiKey(context: Context, provider: String): String =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .getString("ai_key_$provider", "") ?: ""
+
+fun saveAiApiKey(context: Context, provider: String, key: String) =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .edit().putString("ai_key_$provider", key).apply()
+
+fun getThemeIndex(context: Context): Int =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .getInt("theme_index", 0)
+
+fun saveThemeIndex(context: Context, index: Int) =
+    context.getSharedPreferences("smsvote_prefs", Context.MODE_PRIVATE)
+        .edit().putInt("theme_index", index).apply()
+
 @Composable
 fun OnboardingScreen(
     onFinish: () -> Unit,

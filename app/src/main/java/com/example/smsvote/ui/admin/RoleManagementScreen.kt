@@ -130,18 +130,18 @@ fun RoleManagementScreen(
                                 label = { Text("管理員") }
                             )
                         }
-                        if (preApprove.errorMessage != null) {
+                        preApprove.errorMessage?.let { msg ->
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                preApprove.errorMessage!!,
+                                msg,
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        if (preApprove.successMessage != null) {
+                        preApprove.successMessage?.let { msg ->
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                preApprove.successMessage!!,
+                                msg,
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold

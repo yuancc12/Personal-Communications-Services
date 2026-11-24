@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class PreApproveUiState(
@@ -43,26 +44,27 @@ class RoleManagementViewModel(application: Application) : AndroidViewModel(appli
     val preApprove: StateFlow<PreApproveUiState> = _preApprove.asStateFlow()
 
     fun onPreApproveEmailChange(email: String) {
-        _preApprove.value = _preApprove.value.copy(email = email, errorMessage = null, successMessage = null)
+        _preApprove.update { it.copy(email = email, errorMessage = null, successMessage = null) }
     }
 
     fun onPreApproveRoleChange(role: String) {
-        _preApprove.value = _preApprove.value.copy(role = role)
+        _preApprove.update { it.copy(role = role) }
     }
 
     fun submitPreApprove() {
         val email = _preApprove.value.email.trim()
         if (email.isBlank()) {
-            _preApprove.value = _preApprove.value.copy(errorMessage = "請輸入 Email")
+            _preApprove.update { it.copy(errorMessage = "請輸入 Email") }
             return
         }
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _preApprove.value = _preApprove.value.copy(errorMessage = "Email 格式不正確")
+            _preApprove.update { it.copy(errorMessage = "Email 格式不正確") }
             return
         }
+        val role = _preApprove.value.role
         viewModelScope.launch {
-            _preApprove.value = _preApprove.value.copy(isLoading = true, errorMessage = null, successMessage = null)
-            runCatching { repository.preApproveEmail(email, _preApprove.value.role) }
+            _preApprove.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            runCatching { repository.preApproveEmail(email, role) }
                 .onSuccess { emailError ->
                     if (emailError == null) {
                         _preApprove.value = PreApproveUiState(successMessage = "✓ 已新增並發送邀請信給 $email")
@@ -70,11 +72,8 @@ class RoleManagementViewModel(application: Application) : AndroidViewModel(appli
                         _preApprove.value = PreApproveUiState(successMessage = "✓ 已新增授權，但寄信失敗：$emailError")
                     }
                 }
-                .onFailure {
-                    _preApprove.value = _preApprove.value.copy(
-                        isLoading = false,
-                        errorMessage = "新增失敗：${it.localizedMessage}"
-                    )
+                .onFailure { error ->
+                    _preApprove.update { it.copy(isLoading = false, errorMessage = "新增失敗：${error.localizedMessage}") }
                 }
         }
     }

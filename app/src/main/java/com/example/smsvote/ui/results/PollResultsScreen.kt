@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.smsvote.data.model.Poll
+import com.example.smsvote.ui.getAiApiKey
+import com.example.smsvote.ui.getAiProvider
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,15 +81,17 @@ fun PollResultsScreen(
     poll: Poll,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: PollResultsViewModel = viewModel(factory = PollResultsViewModel.Factory(poll))
 ) {
+    val context = LocalContext.current
+    val aiProvider = getAiProvider(context)
+    val aiApiKey   = getAiApiKey(context, aiProvider)
+    val viewModel: PollResultsViewModel = viewModel(factory = PollResultsViewModel.Factory(poll, aiProvider, aiApiKey))
     val results by viewModel.results.collectAsState()
     val totalVotes by viewModel.totalVotes.collectAsState()
     val sentCount by viewModel.sentCount.collectAsState()
     val analysisState by viewModel.analysisState.collectAsState()
     val isExpired = poll.endTime != null && System.currentTimeMillis() > poll.endTime
     val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
-    val context = LocalContext.current
     var chartType by remember { mutableStateOf(ChartType.BAR) }
 
     Column(modifier = modifier.fillMaxSize()) {

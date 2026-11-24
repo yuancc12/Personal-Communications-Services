@@ -2,14 +2,18 @@ package com.example.smsvote.ui.createpoll
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.smsvote.BuildConfig
 import com.example.smsvote.data.model.Poll
 import com.example.smsvote.data.repository.PollRepository
+import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 data class CreatePollUiState(
@@ -19,7 +23,8 @@ data class CreatePollUiState(
     val endTime: Long? = null,
     val isSaving: Boolean = false,
     val savedSuccessfully: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val category: String = ""
 )
 
 class CreatePollViewModel : ViewModel() {
@@ -87,13 +92,22 @@ class CreatePollViewModel : ViewModel() {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
             try {
                 val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                val category = try {
+                    withContext(Dispatchers.IO) {
+                        val prompt = "請將以下投票分類為以下其中一個類別（只回覆類別名稱，不要其他文字）：政治、美食、娛樂、體育、工作、教育、健康、生活、科技、其他\n\n投票問題：${state.question}\n選項：${state.options.joinToString("、")}"
+                        GenerativeModel(modelName = "gemini-1.5-flash", apiKey = BuildConfig.GEMINI_API_KEY)
+                            .generateContent(prompt).text?.trim() ?: "其他"
+                    }
+                } catch (e: Exception) { "其他" }
+                _uiState.update { it.copy(category = category) }
                 repository.insertPoll(
                     Poll(
                         question = state.question,
                         options = state.options,
                         maxChoices = state.maxChoices,
                         endTime = state.endTime,
-                        createdBy = uid
+                        createdBy = uid,
+                        category = category
                     )
                 )
                 _uiState.update { it.copy(isSaving = false, savedSuccessfully = true) }

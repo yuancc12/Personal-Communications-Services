@@ -11,5 +11,6 @@ data class Poll(
     val createdBy: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val isActive: Boolean = true,
+    val category: String = "",
     val sentRecipientIds: List<String> = emptyList()
 )

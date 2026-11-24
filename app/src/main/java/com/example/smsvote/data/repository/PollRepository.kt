@@ -17,6 +17,7 @@ class PollRepository {
     fun getAllPolls(): Flow<List<Poll>> = callbackFlow {
         val listener = polls
             .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(300)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snapshot?.documents?.mapNotNull { it.toPoll() } ?: emptyList())
@@ -28,6 +29,7 @@ class PollRepository {
         val listener = polls
             .whereEqualTo("createdBy", uid)
             .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(300)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) { trySend(emptyList()); return@addSnapshotListener }
                 trySend(snapshot?.documents?.mapNotNull { it.toPoll() } ?: emptyList())
@@ -111,6 +113,7 @@ class PollRepository {
             createdBy = getString("createdBy") ?: "",
             createdAt = getLong("createdAt") ?: 0L,
             isActive = getBoolean("isActive") ?: true,
+            category = getString("category") ?: "",
             sentRecipientIds = sentRecipientIds
         )
     }
@@ -119,7 +122,7 @@ class PollRepository {
         "id" to id, "question" to question, "options" to options,
         "maxChoices" to maxChoices, "endTime" to endTime,
         "createdBy" to createdBy, "createdAt" to createdAt, "isActive" to isActive,
-        "sentRecipientIds" to sentRecipientIds
+        "category" to category, "sentRecipientIds" to sentRecipientIds
     )
 
     private fun VoteRecord.toMap() = mapOf(

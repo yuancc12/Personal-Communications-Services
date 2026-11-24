@@ -37,6 +37,11 @@ class RecipientsViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.update { it.copy(errorMessage = "請填寫姓名和電話") }
             return
         }
+        val normalizedPhone = state.newPhone.replace(Regex("[\\s\\-()]"), "")
+        if (!normalizedPhone.matches(Regex("^\\+?[0-9]{7,15}$"))) {
+            _uiState.update { it.copy(errorMessage = "電話格式不正確（例：0912345678 或 +886912345678）") }
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addRecipient(Recipient(name = state.newName, phoneNumber = state.newPhone))

@@ -137,39 +137,41 @@ fun InviteQrScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(60.dp))
-            } else if (token != null) {
-                ElevatedCard(shape = RoundedCornerShape(16.dp)) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        val bitmap = remember(token) { generateQrBitmap(token!!) }
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "邀請 QR Code",
-                            modifier = Modifier.size(220.dp)
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            token!!,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "角色：${if (selectedRole == "admin") "管理員" else "操作員"}　有效期：48 小時",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            } else {
+                token?.let { tok ->
+                    ElevatedCard(shape = RoundedCornerShape(16.dp)) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val bitmap = remember(tok) { generateQrBitmap(tok) }
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "邀請 QR Code",
+                                modifier = Modifier.size(220.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                tok,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "角色：${if (selectedRole == "admin") "管理員" else "操作員"}　有效期：48 小時",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "截圖後傳給對方，讓他們在 App 內掃描",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "截圖後傳給對方，讓他們在 App 內掃描",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             Spacer(Modifier.height(8.dp))

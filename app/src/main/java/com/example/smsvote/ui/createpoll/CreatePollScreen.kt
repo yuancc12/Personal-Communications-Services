@@ -179,9 +179,9 @@ fun CreatePollScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (state.errorMessage != null) {
+            state.errorMessage?.let { msg ->
                 Text(
-                    text = state.errorMessage!!,
+                    text = msg,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )

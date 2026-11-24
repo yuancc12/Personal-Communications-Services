@@ -2,13 +2,17 @@ package com.example.smsvote.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+val Blue700   = Color(0xFF1565C0)
+val Blue500   = Color(0xFF0288D1)
 val Blue600   = Color(0xFF2563EB)
 val Blue800   = Color(0xFF1E40AF)
 val Blue100   = Color(0xFFDBEAFE)
 
-val Violet600 = Color(0xFF7C3AED)
-val Violet100 = Color(0xFFEDE9FE)
-val Violet200 = Color(0xFFC4B5FD)
+// 金色系（取代原本的紫色）
+val Amber600  = Color(0xFFF57F17)
+val Amber400  = Color(0xFFF9A825)
+val Amber100  = Color(0xFFFFF8E1)
+val Amber200  = Color(0xFFFFE082)
 
 val Emerald600 = Color(0xFF059669)
 

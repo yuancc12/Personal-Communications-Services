@@ -91,9 +91,17 @@ private fun AppRoot(authManager: AuthManager) {
     val adminViewModel: AdminViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val polls by adminViewModel.polls.collectAsState()
     val currentAppUser by adminViewModel.currentUser.collectAsState()
+    val vmError by adminViewModel.loadError.collectAsState()
 
     LaunchedEffect(user) {
         if (user != null) adminViewModel.loadUser()
+    }
+
+    LaunchedEffect(vmError) {
+        if (vmError != null) {
+            errorMessage = vmError
+            adminViewModel.clearError()
+        }
     }
 
     val context = LocalContext.current
@@ -142,7 +150,7 @@ private fun AppRoot(authManager: AuthManager) {
             )
         } else if (currentAppUser?.isPending == true) {
             PendingApprovalScreen(
-                displayName = user!!.displayName ?: "",
+                displayName = user?.displayName ?: "",
                 onSignOut = { authManager.signOut(); user = null },
                 onScanInvite = { currentScreen = Screen.ScanInvite },
                 modifier = Modifier.padding(innerPadding)
@@ -157,8 +165,8 @@ private fun AppRoot(authManager: AuthManager) {
                     modifier = Modifier.padding(innerPadding)
                 )
                 Screen.Home -> AdminHomeScreen(
-                    displayName = user!!.displayName ?: "管理者",
-                    userEmail = user!!.email ?: "",
+                    displayName = user?.displayName ?: "管理者",
+                    userEmail = user?.email ?: "",
                     polls = polls,
                     isAdmin = currentAppUser?.isAdmin == true,
                     isSuperAdmin = currentAppUser?.isSuperAdmin == true,

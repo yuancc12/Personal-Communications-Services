@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class AdminViewModel : ViewModel() {
@@ -23,6 +24,9 @@ class AdminViewModel : ViewModel() {
 
     private val _currentUser = MutableStateFlow<AppUser?>(null)
     val currentUser: StateFlow<AppUser?> = _currentUser.asStateFlow()
+
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError: StateFlow<String?> = _loadError.asStateFlow()
 
     val polls: StateFlow<List<Poll>> = _currentUser
         .flatMapLatest { user ->
@@ -43,6 +47,7 @@ class AdminViewModel : ViewModel() {
     fun loadUser() {
         val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return
         viewModelScope.launch {
+            _loadError.value = null
             runCatching {
                 userRepository.getOrCreateUser(
                     uid = firebaseUser.uid,
@@ -50,7 +55,14 @@ class AdminViewModel : ViewModel() {
                     displayName = firebaseUser.displayName ?: ""
                 )
             }.onSuccess { _currentUser.value = it }
-              .onFailure { android.util.Log.e("AdminViewModel", "loadUser failed", it) }
+             .onFailure { error ->
+                 android.util.Log.e("AdminViewModel", "loadUser failed", error)
+                 _loadError.value = "載入帳號失敗：${error.localizedMessage}"
+             }
         }
+    }
+
+    fun clearError() {
+        _loadError.update { null }
     }
 }
