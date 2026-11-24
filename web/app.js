@@ -429,7 +429,11 @@ function refreshAdminPanel() {
         </div>
         <button id="settings-save-btn" class="abtn abtn-approve">💾 儲存</button>
         <p id="settings-msg" class="admin-msg hidden"></p>
-      </div>`;
+      </div>
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+      <p class="admin-hint">為沒有分類的舊投票自動補上 AI 分類標籤。</p>
+      <button id="classify-old-btn" class="abtn abtn-approve">🏷️ 分類舊投票</button>
+      <p id="classify-msg" class="admin-msg hidden"></p>`;
 
     const providerSel = settingsTab.querySelector("#settings-provider");
     const keyInput    = settingsTab.querySelector("#settings-key-input");
@@ -461,7 +465,76 @@ function refreshAdminPanel() {
       settingsMsg.classList.remove("hidden");
       setTimeout(() => settingsMsg.classList.add("hidden"), 3000);
     });
+
+    const classifyBtn = settingsTab.querySelector("#classify-old-btn");
+    const classifyMsg = settingsTab.querySelector("#classify-msg");
+    classifyBtn.addEventListener("click", async () => {
+      classifyBtn.disabled = true;
+      classifyMsg.textContent = "⏳ 讀取投票中…";
+      classifyMsg.className = "admin-msg ok";
+      classifyMsg.classList.remove("hidden");
+      try {
+        const snap = await getDocs(collection(db, "polls"));
+        const unclassified = snap.docs.filter(d => !d.data().category);
+        if (unclassified.length === 0) {
+          classifyMsg.textContent = "✅ 所有投票已有分類，無需更新";
+          classifyBtn.disabled = false;
+          return;
+        }
+        let done = 0;
+        for (const d of unclassified) {
+          const data = d.data();
+          const opts = data.options || [data.optionA, data.optionB, data.optionC].filter(Boolean);
+          classifyMsg.textContent = `⏳ 分類中 ${done + 1} / ${unclassified.length}：${data.question?.slice(0, 20)}…`;
+          const cat = await jevClassify(data.question || "", opts);
+          await updateDoc(doc(db, "polls", d.id), { category: cat });
+          done++;
+        }
+        classifyMsg.textContent = `✅ 完成！已分類 ${done} 筆投票`;
+      } catch (e) {
+        classifyMsg.textContent = `❌ 失敗：${e.message}`;
+        classifyMsg.className = "admin-msg error";
+      }
+      classifyBtn.disabled = false;
+    });
   }
+}
+
+async function jevClassify(question, options) {
+  try {
+    const res = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${window.JEV_API_KEY}`
+      },
+      body: JSON.stringify({
+        state: `投票問題：${question}\n選項：${options.join("、")}`,
+        model: "jev-latest",
+        questions: {
+          category: {
+            type: "choice",
+            instructions: "這個投票屬於哪個類別？",
+            criteria: {
+              "政治": "政治相關、選舉、政府政策、公共事務",
+              "美食": "食物、餐廳、料理、飲食偏好",
+              "娛樂": "電影、音樂、遊戲、娛樂活動",
+              "體育": "運動、競技、球賽、健身",
+              "工作": "職場、工作、商業、職業",
+              "教育": "學習、學校、課程、教育",
+              "健康": "健康、醫療、養生、身體",
+              "生活": "日常生活、生活習慣、居家",
+              "科技": "科技、電腦、手機、網路",
+              "其他": "不屬於以上任何類別"
+            }
+          }
+        }
+      })
+    });
+    if (!res.ok) return "其他";
+    const json = await res.json();
+    return json.answers?.category?.choice || "其他";
+  } catch { return "其他"; }
 }
 
 async function loadPreApproved(container) {
