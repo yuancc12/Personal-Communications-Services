@@ -29,6 +29,7 @@
 /* 翠金 */
 body[data-theme="emerald"] {
   --g1: #00695C; --g2: #00897B; --g3: #FFB300;
+  --grad: linear-gradient(135deg, #00695C 0%, #00897B 55%, #FFB300 100%);
   --tint:    #E0F2F1; --tint2: #F1FAFA; --on-tint: #00695C;
   --bg: #F2FAFB;
   --shadow:    0 2px 14px rgba(0,105,92,.08);
@@ -38,6 +39,7 @@ body[data-theme="emerald"] {
 /* 深紅金 */
 body[data-theme="crimson"] {
   --g1: #B71C1C; --g2: #E53935; --g3: #FFA000;
+  --grad: linear-gradient(135deg, #B71C1C 0%, #E53935 55%, #FFA000 100%);
   --tint:    #FFEBEE; --tint2: #FFF5F5; --on-tint: #B71C1C;
   --bg: #FFF8F5;
   --shadow:    0 2px 14px rgba(183,28,28,.08);
@@ -47,6 +49,7 @@ body[data-theme="crimson"] {
 /* 靛青 */
 body[data-theme="indigo"] {
   --g1: #283593; --g2: #1976D2; --g3: #26C6DA;
+  --grad: linear-gradient(135deg, #283593 0%, #1976D2 55%, #26C6DA 100%);
   --tint:    #E8EAF6; --tint2: #F3F4FF; --on-tint: #283593;
   --bg: #F3F6FF;
   --shadow:    0 2px 14px rgba(40,53,147,.08);
@@ -184,8 +187,9 @@ main { max-width: 740px; margin: 28px auto; padding: 0 20px; }
 .poll-header h2 { flex: 1; font-size: 1.05rem; color: var(--text); line-height: 1.45; font-weight: 600; }
 
 .badge { font-size: .68rem; padding: 3px 10px; border-radius: 20px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
-.badge-active  { background: #E8F5E9; color: #1B5E20; }
-.badge-expired { background: #FFEBEE; color: #880E4F; }
+.badge-active   { background: #E8F5E9; color: #1B5E20; }
+.badge-expired  { background: #FFEBEE; color: #880E4F; }
+.badge-category { background: var(--tint); color: var(--on-tint); }
 
 .poll-meta { font-size: .78rem; color: #aaa; margin-bottom: 8px; }
 .poll-meta strong { color: var(--g1); font-weight: 700; font-size: .88rem; }

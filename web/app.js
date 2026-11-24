@@ -848,6 +848,7 @@ function buildPollCard(poll) {
     <div class="poll-card-inner">
     <div class="poll-header">
       <h2>${esc(poll.question)}</h2>
+      ${poll.category ? `<span class="badge badge-category">${esc(poll.category)}</span>` : ""}
       <span class="badge ${isExpired ? "badge-expired" : "badge-active"}">${isExpired ? "已截止" : "進行中"}</span>
     </div>
     <p class="poll-meta">
@@ -1159,7 +1160,7 @@ function helpStep(num, emoji, title, where, desc) {
 
 function openHelpModal(autoShow = false) {
   if (document.getElementById("_help_modal")) return;
-  if (autoShow && localStorage.getItem("help_dismissed") === "1") return;
+  if (autoShow && sessionStorage.getItem("help_shown") === "1") return;
 
   const el = document.createElement("div");
   el.id = "_help_modal";
@@ -1187,7 +1188,7 @@ function openHelpModal(autoShow = false) {
   document.body.appendChild(el);
 
   const close = () => {
-    localStorage.setItem("help_dismissed", "1");
+    sessionStorage.setItem("help_shown", "1");
     el.remove();
   };
   el.querySelector("#help-close").addEventListener("click", close);
