@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.smsvote.BuildConfig
 import com.example.smsvote.data.model.Poll
 import com.example.smsvote.data.repository.PollRepository
-import com.google.ai.client.generativeai.GenerativeModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,11 +92,7 @@ class CreatePollViewModel : ViewModel() {
             try {
                 val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                 val category = try {
-                    withContext(Dispatchers.IO) {
-                        val prompt = "請將以下投票分類為以下其中一個類別（只回覆類別名稱，不要其他文字）：政治、美食、娛樂、體育、工作、教育、健康、生活、科技、其他\n\n投票問題：${state.question}\n選項：${state.options.joinToString("、")}"
-                        GenerativeModel(modelName = "gemini-1.5-flash", apiKey = BuildConfig.GEMINI_API_KEY)
-                            .generateContent(prompt).text?.trim() ?: "其他"
-                    }
+                    classifyWithJev(state.question, state.options)
                 } catch (e: Exception) { "其他" }
                 _uiState.update { it.copy(category = category) }
                 repository.insertPoll(
@@ -116,4 +111,45 @@ class CreatePollViewModel : ViewModel() {
             }
         }
     }
+
+    private suspend fun classifyWithJev(question: String, options: List<String>): String =
+        withContext(Dispatchers.IO) {
+            val url = java.net.URL("https://api.typesafe.ai/v1/systemone")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer ${BuildConfig.JEV_API_KEY}")
+            conn.doOutput = true
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+            val body = org.json.JSONObject().apply {
+                put("state", "投票問題：$question\n選項：${options.joinToString("、")}")
+                put("model", "jev-latest")
+                put("questions", org.json.JSONObject().apply {
+                    put("category", org.json.JSONObject().apply {
+                        put("type", "choice")
+                        put("instructions", "這個投票屬於哪個類別？")
+                        put("criteria", org.json.JSONObject().apply {
+                            put("政治", "政治相關、選舉、政府政策、公共事務")
+                            put("美食", "食物、餐廳、料理、飲食偏好")
+                            put("娛樂", "電影、音樂、遊戲、娛樂活動")
+                            put("體育", "運動、競技、球賽、健身")
+                            put("工作", "職場、工作、商業、職業")
+                            put("教育", "學習、學校、課程、教育")
+                            put("健康", "健康、醫療、養生、身體")
+                            put("生活", "日常生活、生活習慣、居家")
+                            put("科技", "科技、電腦、手機、網路")
+                            put("其他", "不屬於以上任何類別")
+                        })
+                    })
+                })
+            }.toString()
+            conn.outputStream.write(body.toByteArray())
+            if (conn.responseCode != 200) return@withContext "其他"
+            val response = conn.inputStream.bufferedReader().readText()
+            org.json.JSONObject(response)
+                .getJSONObject("answers")
+                .getJSONObject("category")
+                .getString("choice")
+        }
 }

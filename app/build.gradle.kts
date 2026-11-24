@@ -39,6 +39,8 @@ android {
 
     val geminiKey = project.findProperty("GEMINI_API_KEY")?.toString() ?: ""
     defaultConfig.buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+    val jevKey = project.findProperty("JEV_API_KEY")?.toString() ?: ""
+    defaultConfig.buildConfigField("String", "JEV_API_KEY", "\"$jevKey\"")
     val emailjsPublicKey = project.findProperty("EMAILJS_PUBLIC_KEY")?.toString() ?: ""
     defaultConfig.buildConfigField("String", "EMAILJS_PUBLIC_KEY", "\"$emailjsPublicKey\"")
     val emailjsPrivateKey = project.findProperty("EMAILJS_PRIVATE_KEY")?.toString() ?: ""
