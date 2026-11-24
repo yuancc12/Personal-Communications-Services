@@ -845,7 +845,7 @@ function updatePollCard(card, poll) {
 
   card.className = "poll-card" + (isExpired ? " poll-expired" : "");
 
-  const badge = card.querySelector(".badge");
+  const badge = card.querySelector(".badge-active, .badge-expired");
   if (badge) {
     badge.textContent = isExpired ? "已截止" : "進行中";
     badge.className = `badge ${isExpired ? "badge-expired" : "badge-active"}`;
