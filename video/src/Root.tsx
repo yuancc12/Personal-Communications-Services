@@ -2,9 +2,9 @@ import React from "react";
 import { Composition } from "remotion";
 import { SMSVoteIntro, SCENE_DURATIONS } from "./SMSVoteIntro";
 
-// 9 scenes × avg ~8.9s = 2520 frames − 8 transitions × 18 = 2520 − 144 = 2376 frames ≈ 79s
+// 10 scenes: sum − 9 transitions × 18
 const TOTAL_FRAMES =
-  Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0) - 8 * 18;
+  Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0) - 9 * 18;
 
 export const Root: React.FC = () => {
   return (
