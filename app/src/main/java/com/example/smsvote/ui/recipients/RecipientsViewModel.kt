@@ -44,7 +44,12 @@ class RecipientsViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             try {
-                repository.addRecipient(Recipient(name = state.newName, phoneNumber = state.newPhone))
+                val exists = repository.existsByPhone(normalizedPhone)
+                if (exists) {
+                    _uiState.update { it.copy(errorMessage = "此電話號碼已存在") }
+                    return@launch
+                }
+                repository.addRecipient(Recipient(name = state.newName, phoneNumber = normalizedPhone))
                 _uiState.update { it.copy(newName = "", newPhone = "", errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "新增失敗：${e.localizedMessage}") }

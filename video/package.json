@@ -1,0 +1,21 @@
+{
+  "name": "smsvote-intro-video",
+  "version": "1.0.0",
+  "description": "SMSVote App Introduction Video",
+  "scripts": {
+    "start": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts SMSVoteIntro out/SMSVoteIntro.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.547",
+    "@remotion/transitions": "^4.0.272",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "remotion": "^4.0.272"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

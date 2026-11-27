@@ -178,6 +178,24 @@ async function verifyAccess(user) {
     const snap = await getDoc(doc(db, "users", user.uid));
 
     if (!snap.exists()) {
+      // Check pre_approved first — auto-approve if admin pre-authorized this email
+      const preSnap = await getDoc(doc(db, "pre_approved", user.email.toLowerCase()));
+      if (preSnap.exists()) {
+        const preData = preSnap.data();
+        const role = preData.role || "operator";
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email ?? "",
+          displayName: user.displayName ?? "",
+          role: role,
+          status: "approved",
+          createdAt: Date.now()
+        });
+        currentUserRole = role;
+        showResults(user, role);
+        return;
+      }
+
       // 帳號從未在 App 登錄過 — 嘗試自動建立 pending 文件讓管理員審核
       try {
         await setDoc(doc(db, "users", user.uid), {

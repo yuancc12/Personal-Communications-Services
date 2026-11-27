@@ -81,6 +81,17 @@ class SendSmsViewModel(application: Application) : AndroidViewModel(application)
 
     fun dismissConfirm() = _uiState.update { it.copy(showConfirmDialog = false, pendingPoll = null) }
 
+    fun computeActualSendCount(extraNumbers: String): Int {
+        val selectedRecipients = recipients.value.filter { it.id in _selectedIds.value }
+        val fromRecipients = selectedRecipients.map { it.phoneNumber to it.name }
+        val fromManual = extraNumbers
+            .split(",", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .map { it to "" }
+        return (fromRecipients + fromManual).distinctBy { it.first }.size
+    }
+
     fun confirmSend() {
         val poll = _uiState.value.pendingPoll ?: return
         _uiState.update { it.copy(showConfirmDialog = false, pendingPoll = null) }
@@ -147,14 +158,16 @@ class SendSmsViewModel(application: Application) : AndroidViewModel(application)
                 context.registerReceiver(deliveredReceiver, IntentFilter(deliveredAction))
             }
             sentReceivers.add(sentReceiver)
+            sentReceivers.add(deliveredReceiver)
 
             try {
                 val parts = smsManager.divideMessage(message)
                 if (parts.size == 1) {
                     smsManager.sendTextMessage(number, null, message, sentIntent, deliveredIntent)
                 } else {
-                    val sentIntents = ArrayList(parts.map { sentIntent })
-                    val deliveredIntents = ArrayList(parts.map { deliveredIntent })
+                    // Only fire the callback on the last part to avoid unregistering the receiver early
+                    val sentIntents = ArrayList(List(parts.size - 1) { null as PendingIntent? } + listOf(sentIntent))
+                    val deliveredIntents = ArrayList(List(parts.size - 1) { null as PendingIntent? } + listOf(deliveredIntent))
                     smsManager.sendMultipartTextMessage(number, null, parts, sentIntents, deliveredIntents)
                 }
             } catch (e: Exception) {

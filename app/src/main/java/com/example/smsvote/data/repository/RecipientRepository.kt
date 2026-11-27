@@ -40,6 +40,11 @@ class RecipientRepository {
         ).await()
     }
 
+    suspend fun existsByPhone(phoneNumber: String): Boolean {
+        val snap = collection.whereEqualTo("phoneNumber", phoneNumber).limit(1).get().await()
+        return !snap.isEmpty
+    }
+
     suspend fun deleteRecipient(id: String) {
         collection.document(id).delete().await()
     }

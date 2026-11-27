@@ -71,10 +71,7 @@ fun SendSmsScreen(
 
     // Confirmation dialog
     if (state.showConfirmDialog) {
-        val selectedCount = selectedIds.size
-        val extraCount = state.extraNumbers.split(",", "\n")
-            .map { it.trim() }.count { it.isNotEmpty() }
-        val total = selectedCount + extraCount
+        val total = viewModel.computeActualSendCount(state.extraNumbers)
         AlertDialog(
             onDismissRequest = viewModel::dismissConfirm,
             title = { Text("確認發送") },

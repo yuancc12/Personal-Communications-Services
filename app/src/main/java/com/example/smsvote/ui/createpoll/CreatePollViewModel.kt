@@ -72,13 +72,15 @@ class CreatePollViewModel : ViewModel() {
     }
 
     fun onEndTimeChange(dateMillis: Long) = _uiState.update {
+        val today = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        if (dateMillis < today) return@update it.copy(errorMessage = "截止時間不能早於今天")
         val endOfDay = Calendar.getInstance().apply {
             timeInMillis = dateMillis
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 59)
-            set(Calendar.SECOND, 59)
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59)
         }.timeInMillis
-        it.copy(endTime = endOfDay)
+        it.copy(endTime = endOfDay, errorMessage = null)
     }
 
     fun savePoll() {
