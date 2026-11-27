@@ -1,88 +1,178 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
 
-const CARDS = [
-  { emoji: "🗳️", title: "建立投票", sub: "Create Polls", desc: "自訂選項、截止日期\n多種題型支援", color: "#7C3AED", bg: "#EDE9FE" },
-  { emoji: "📱", title: "SMS 發送", sub: "Bulk SMS Delivery", desc: "批次傳送聯絡人\n即時追蹤送達狀態", color: "#0891B2", bg: "#E0F2FE" },
-  { emoji: "🤖", title: "AI 分析", sub: "Smart Categorization", desc: "自動分類主題\n產生洞察與報表", color: "#059669", bg: "#D1FAE5" },
+// Scene 2: 三欄三向飛入 — 左從左進、中從上切下、右從下往上
+const PANELS = [
+  {
+    emoji: "🗳️",
+    num: "01",
+    title: "建立投票",
+    titleEn: "Create Poll",
+    desc: "自訂標題、選項與截止時間\n幾分鐘完成投票設計\n支援多種題型",
+    bg: "linear-gradient(160deg, #4C1D95 0%, #7C3AED 100%)",
+    textColor: "#FFF",
+    subColor: "rgba(255,255,255,0.65)",
+    numColor: "rgba(255,255,255,0.15)",
+    accent: "#A78BFA",
+  },
+  {
+    emoji: "📱",
+    num: "02",
+    title: "SMS 傳送",
+    titleEn: "Send via SMS",
+    desc: "批次傳送給所有聯絡人\n自動附上投票內容\n即時追蹤送達狀態",
+    bg: "linear-gradient(160deg, #FFFFFF 0%, #F0F9FF 100%)",
+    textColor: "#0C4A6E",
+    subColor: "#0369A1",
+    numColor: "rgba(8,145,178,0.08)",
+    accent: "#0891B2",
+  },
+  {
+    emoji: "🤖",
+    num: "03",
+    title: "AI 分析",
+    titleEn: "AI Analysis",
+    desc: "Jev AI 自動分類主題\n產生關鍵洞察與報表\n一鍵匯出 PDF",
+    bg: "linear-gradient(160deg, #022c22 0%, #064e3b 100%)",
+    textColor: "#FFF",
+    subColor: "rgba(255,255,255,0.65)",
+    numColor: "rgba(16,185,129,0.15)",
+    accent: "#10B981",
+  },
 ];
 
 export const TaglineScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const topOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
-  const topY = interpolate(frame, [0, 20], [-30, 0], { extrapolateRight: "clamp" });
-  const dividerW = interpolate(frame, [22, 48], [0, 1920], { extrapolateRight: "clamp" });
+  // Panel 1: slides from LEFT
+  const p1X = interpolate(frame, [0, 28], [-960, 0], {
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 3),
+  });
+  const p1Opacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
+
+  // Panel 2: slides from TOP DOWN
+  const p2Y = interpolate(frame, [15, 42], [-540, 0], {
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 3),
+  });
+  const p2Opacity = interpolate(frame, [15, 32], [0, 1], { extrapolateRight: "clamp" });
+
+  // Panel 3: slides from BOTTOM UP
+  const p3Y = interpolate(frame, [30, 56], [540, 0], {
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 3),
+  });
+  const p3Opacity = interpolate(frame, [30, 46], [0, 1], { extrapolateRight: "clamp" });
+
+  // Content fade-in inside each panel (staggered)
+  const getContentOpacity = (delay: number) =>
+    interpolate(frame, [delay, delay + 20], [0, 1], { extrapolateRight: "clamp" });
+  const getContentY = (delay: number) =>
+    interpolate(frame, [delay, delay + 20], [24, 0], { extrapolateRight: "clamp" });
+
+  const transforms = [
+    { x: p1X, y: 0, opacity: p1Opacity, contentDelay: 28 },
+    { x: 0, y: p2Y, opacity: p2Opacity, contentDelay: 42 },
+    { x: 0, y: p3Y, opacity: p3Opacity, contentDelay: 56 },
+  ];
 
   return (
     <div style={{
       width: "100%", height: "100%",
-      background: "#FFFFFF",
-      display: "flex", flexDirection: "column",
+      display: "flex",
       fontFamily: "'Helvetica Neue', Arial, 'PingFang TC', 'Microsoft JhengHei', sans-serif",
+      overflow: "hidden",
     }}>
-      {/* TOP 42% */}
-      <div style={{
-        height: "42%",
-        background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: "0 160px",
-        opacity: topOpacity, transform: `translateY(${topY}px)`,
-      }}>
-        <div style={{ fontSize: 22, color: "#A5B4FC", letterSpacing: 4, textTransform: "uppercase", marginBottom: 18 }}>
-          The Problem We Solve
-        </div>
-        <div style={{ fontSize: 72, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.15, textAlign: "center" }}>
-          傳統投票<span style={{ color: "#A78BFA" }}> 費時費力</span>，<br />
-          SMS 直達每一個人
-        </div>
-        <div style={{ fontSize: 26, color: "rgba(255,255,255,0.6)", marginTop: 18, textAlign: "center" }}>
-          受訪者不需下載任何 App，直接用手機簡訊回覆即可
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: 5, background: "linear-gradient(90deg, #7C3AED, #06B6D4, #10B981)", width: dividerW }} />
-
-      {/* BOTTOM 58% — 3 cards */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 44, padding: "0 100px", background: "#F8FAFC" }}>
-        {CARDS.map((card, i) => {
-          const delay = 32 + i * 18;
-          const cardOpacity = interpolate(frame, [delay, delay + 18], [0, 1], { extrapolateRight: "clamp" });
-          const cardY = interpolate(frame, [delay, delay + 18], [40, 0], { extrapolateRight: "clamp" });
-          const cardScale = spring({ frame, fps, config: { damping: 14, stiffness: 120 }, delay });
-
-          return (
-            <div key={i} style={{
-              opacity: cardOpacity,
-              transform: `translateY(${cardY}px) scale(${cardScale})`,
-              flex: 1, background: "#FFFFFF",
-              borderRadius: 28, padding: "36px 32px",
-              textAlign: "center",
-              boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
-              border: `2px solid ${card.bg}`,
+      {PANELS.map((panel, i) => {
+        const t = transforms[i];
+        return (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              background: panel.bg,
+              opacity: t.opacity,
+              transform: `translateX(${t.x}px) translateY(${t.y}px)`,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              padding: "56px 52px",
+              position: "relative",
+              overflow: "hidden",
+              borderRight: i < 2 ? "1px solid rgba(255,255,255,0.08)" : "none",
+            }}
+          >
+            {/* Big number watermark */}
+            <div style={{
+              position: "absolute", bottom: 32, right: 36,
+              fontSize: 160, fontWeight: 900,
+              color: panel.numColor,
+              lineHeight: 1,
+              userSelect: "none",
             }}>
-              <div style={{
-                width: 100, height: 100, borderRadius: "50%",
-                background: card.bg,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 52, margin: "0 auto 20px",
-              }}>{card.emoji}</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: "#1E1B4B", marginBottom: 8 }}>{card.title}</div>
-              <div style={{ fontSize: 22, color: "#6B7280", marginBottom: 14 }}>{card.sub}</div>
-              <div style={{ fontSize: 20, color: "#9CA3AF", lineHeight: 1.6, whiteSpace: "pre-line" }}>{card.desc}</div>
-              <div style={{
-                marginTop: 20, display: "inline-block",
-                padding: "10px 26px", borderRadius: 100,
-                background: card.bg, fontSize: 18,
-                color: card.color, fontWeight: 600,
-              }}>了解更多 →</div>
+              {panel.num}
             </div>
-          );
-        })}
-      </div>
+
+            {/* Content */}
+            <div style={{
+              opacity: getContentOpacity(t.contentDelay),
+              transform: `translateY(${getContentY(t.contentDelay)}px)`,
+              position: "relative", zIndex: 2,
+            }}>
+              {/* Emoji circle */}
+              <div style={{
+                width: 96, height: 96, borderRadius: 28,
+                background: `${panel.accent}33`,
+                border: `2px solid ${panel.accent}66`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 48, marginBottom: 32,
+              }}>
+                {panel.emoji}
+              </div>
+
+              {/* Number label */}
+              <div style={{
+                fontSize: 15, fontWeight: 700, letterSpacing: 3,
+                color: panel.accent, textTransform: "uppercase",
+                marginBottom: 16,
+              }}>
+                Feature {panel.num}
+              </div>
+
+              {/* Title */}
+              <div style={{
+                fontSize: 72, fontWeight: 900,
+                color: panel.textColor, lineHeight: 1.05,
+                marginBottom: 10,
+              }}>
+                {panel.title}
+              </div>
+              <div style={{
+                fontSize: 26, color: panel.accent,
+                fontWeight: 500, marginBottom: 32,
+              }}>
+                {panel.titleEn}
+              </div>
+
+              {/* Description */}
+              <div style={{
+                fontSize: 24, color: panel.subColor,
+                lineHeight: 1.75, whiteSpace: "pre-line",
+              }}>
+                {panel.desc}
+              </div>
+
+              {/* Bottom accent line */}
+              <div style={{
+                marginTop: 40, width: 60, height: 4,
+                background: panel.accent, borderRadius: 2,
+              }} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
