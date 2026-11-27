@@ -59,7 +59,7 @@ export const IndustryScene: React.FC = () => {
         borderBottom: "1px solid #F3F4F6",
         opacity: headerO, transform: `translateY(${headerY}px)`,
       }}>
-        <div style={{ fontSize: 16, color: "#7C3AED", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>
+        <div style={{ fontSize: 22, color: "#7C3AED", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>
           Industry · 產業分析
         </div>
         <div style={{ fontSize: 52, fontWeight: 900, color: "#1E1B4B", lineHeight: 1 }}>
@@ -79,12 +79,12 @@ export const IndustryScene: React.FC = () => {
               borderRadius: 18, padding: "18px 22px",
               display: "flex", alignItems: "center", gap: 18,
             }}>
-              <div style={{ width: 54, height: 54, borderRadius: 14, background: p.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 14, background: p.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, flexShrink: 0 }}>
                 {p.icon}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "#1E1B4B" }}>{p.title}</div>
-                <div style={{ fontSize: 16, color: p.color, marginTop: 3 }}>✗ {p.problem}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: "#1E1B4B" }}>{p.title}</div>
+                <div style={{ fontSize: 22, color: p.color, marginTop: 3 }}>✗ {p.problem}</div>
               </div>
             </div>
           ))}
@@ -98,12 +98,12 @@ export const IndustryScene: React.FC = () => {
             borderRadius: 18, padding: "18px 22px",
             display: "flex", alignItems: "center", gap: 18,
           }}>
-            <div style={{ width: 54, height: 54, borderRadius: 14, background: "#7C3AED", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 14, background: "#7C3AED", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, flexShrink: 0 }}>
               💬
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#7C3AED" }}>SMSVote</div>
-              <div style={{ fontSize: 16, color: "#059669", marginTop: 3 }}>✓ 免 App、免帳號、AI 自動分析，全部搞定</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "#7C3AED" }}>SMSVote</div>
+              <div style={{ fontSize: 22, color: "#059669", marginTop: 3 }}>✓ 免 App、免帳號、AI 自動分析，全部搞定</div>
             </div>
           </div>
         </div>
@@ -113,7 +113,7 @@ export const IndustryScene: React.FC = () => {
           flexShrink: 0,
           opacity: interpolate(frame, [fps * 1.3, fps * 1.7], [0, 1], { extrapolateRight: "clamp" }),
         }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#6B7280", textAlign: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "#6B7280", textAlign: "center", marginBottom: 12 }}>
             競品定位圖
           </div>
 
@@ -156,7 +156,7 @@ export const IndustryScene: React.FC = () => {
             <div style={{
               position: "absolute", left: 4, top: "50%",
               transform: "rotate(-90deg) translateX(50%)",
-              fontSize: 13, color: "#9CA3AF", fontWeight: 600,
+              fontSize: 18, color: "#9CA3AF", fontWeight: 600,
               whiteSpace: "nowrap",
             }}>
               智慧化程度 ↑
@@ -164,7 +164,7 @@ export const IndustryScene: React.FC = () => {
             {/* X axis label */}
             <div style={{
               position: "absolute", bottom: 10, right: 20,
-              fontSize: 13, color: "#9CA3AF", fontWeight: 600,
+              fontSize: 18, color: "#9CA3AF", fontWeight: 600,
             }}>
               易用性 →
             </div>
@@ -194,7 +194,7 @@ export const IndustryScene: React.FC = () => {
                     {c.highlight && <span style={{ fontSize: 12 }}>💬</span>}
                   </div>
                   <div style={{
-                    fontSize: c.highlight ? 14 : 12,
+                    fontSize: c.highlight ? 18 : 16,
                     fontWeight: c.highlight ? 800 : 500,
                     color: c.highlight ? c.color : "#6B7280",
                     whiteSpace: "nowrap",
@@ -215,8 +215,8 @@ export const IndustryScene: React.FC = () => {
               opacity: smsLabelO,
               transform: `scale(${smsLabelScale})`,
               background: "#7C3AED",
-              borderRadius: 12, padding: "8px 16px",
-              fontSize: 14, fontWeight: 700, color: "#FFF",
+              borderRadius: 12, padding: "10px 20px",
+              fontSize: 20, fontWeight: 700, color: "#FFF",
               whiteSpace: "nowrap",
               boxShadow: "0 4px 16px rgba(124,58,237,0.4)",
             }}>

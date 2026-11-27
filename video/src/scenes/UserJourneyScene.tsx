@@ -26,7 +26,7 @@ export const UserJourneyScene: React.FC = () => {
     }}>
       {/* Header */}
       <div style={{ padding: "40px 120px 28px", opacity: headerOpacity, transform: `translateY(${headerY}px)`, textAlign: "center" }}>
-        <div style={{ fontSize: 22, color: "#7C3AED", fontWeight: 600, letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
+        <div style={{ fontSize: 26, color: "#7C3AED", fontWeight: 600, letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
           How It Works · 完整操作流程
         </div>
         <div style={{ fontSize: 72, fontWeight: 900, color: "#1E1B4B", lineHeight: 1.1 }}>
@@ -61,20 +61,20 @@ export const UserJourneyScene: React.FC = () => {
                 boxShadow: "0 4px 24px rgba(0,0,0,0.07)",
               }}>
                 <div style={{
-                  width: 68, height: 68, borderRadius: "50%",
+                  width: 82, height: 82, borderRadius: "50%",
                   background: step.bg,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 34, marginBottom: 14,
+                  fontSize: 40, marginBottom: 14,
                 }}>{step.emoji}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "#1E1B4B", textAlign: "center" }}>{step.zh}</div>
-                <div style={{ fontSize: 15, color: "#9CA3AF", marginTop: 3, textAlign: "center" }}>{step.en}</div>
-                <div style={{ marginTop: 12, fontSize: 16, color: "#6B7280", textAlign: "center", lineHeight: 1.6, whiteSpace: "pre-line" }}>{step.desc}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#1E1B4B", textAlign: "center" }}>{step.zh}</div>
+                <div style={{ fontSize: 20, color: "#9CA3AF", marginTop: 3, textAlign: "center" }}>{step.en}</div>
+                <div style={{ marginTop: 12, fontSize: 20, color: "#6B7280", textAlign: "center", lineHeight: 1.6, whiteSpace: "pre-line" }}>{step.desc}</div>
                 <div style={{ marginTop: 12, width: 28, height: 4, borderRadius: 2, background: step.color }} />
               </div>
               {i < STEPS.length - 1 && (
                 <div style={{ opacity: arrowOpacity, display: "flex", alignItems: "center", flexShrink: 0, width: 32 }}>
                   <div style={{ flex: 1, height: 2.5, background: "linear-gradient(90deg, #E5E7EB, #CBD5E1)", borderRadius: 2 }} />
-                  <div style={{ fontSize: 20, color: "#CBD5E1", marginLeft: -4 }}>›</div>
+                  <div style={{ fontSize: 28, color: "#CBD5E1", marginLeft: -4 }}>›</div>
                 </div>
               )}
             </React.Fragment>

@@ -48,10 +48,10 @@ export const OutroScene: React.FC = () => {
       {/* Logo */}
       <div style={{ opacity: logoOpacity, transform: `scale(${logoSpring})`, marginBottom: 20, zIndex: 2 }}>
         <div style={{
-          width: 90, height: 90, borderRadius: 24,
+          width: 108, height: 108, borderRadius: 24,
           background: "linear-gradient(135deg, #7C3AED, #A78BFA)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 44, boxShadow: "0 16px 50px rgba(124,58,237,0.3)",
+          fontSize: 54, boxShadow: "0 16px 50px rgba(124,58,237,0.3)",
         }}>
           💬
         </div>
@@ -95,18 +95,18 @@ export const OutroScene: React.FC = () => {
               minWidth: 260,
             }}>
               <div style={{
-                width: 64, height: 64, borderRadius: "50%",
+                width: 76, height: 76, borderRadius: "50%",
                 background: m.bg, margin: "0 auto 14px",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 24, fontWeight: 800, color: m.color,
+                fontSize: 30, fontWeight: 800, color: m.color,
               }}>
                 {m.avatar}
               </div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#1E1B4B" }}>{m.name}</div>
-              <div style={{ fontSize: 16, color: m.color, fontWeight: 600, marginTop: 6 }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: "#1E1B4B" }}>{m.name}</div>
+              <div style={{ fontSize: 22, color: m.color, fontWeight: 600, marginTop: 6 }}>
                 {m.id} · {m.school}
               </div>
-              <div style={{ fontSize: 18, color: "#6B7280", marginTop: 6 }}>{m.role}</div>
+              <div style={{ fontSize: 24, color: "#6B7280", marginTop: 6 }}>{m.role}</div>
             </div>
           );
         })}
@@ -116,9 +116,9 @@ export const OutroScene: React.FC = () => {
       <div style={{ opacity: techOpacity, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", zIndex: 2, maxWidth: 700 }}>
         {TECHS.map((t, i) => (
           <div key={i} style={{
-            padding: "8px 18px", borderRadius: 100,
+            padding: "10px 22px", borderRadius: 100,
             background: "#FFFFFF", border: "1.5px solid #E5E7EB",
-            fontSize: 14, color: "#6B7280", fontWeight: 500,
+            fontSize: 20, color: "#6B7280", fontWeight: 500,
             boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
           }}>
             {t}
@@ -130,7 +130,7 @@ export const OutroScene: React.FC = () => {
       <div style={{
         position: "absolute", bottom: 28,
         opacity: interpolate(frame, [fps * 3.5, fps * 4.5], [0, 1], { extrapolateRight: "clamp" }),
-        fontSize: 13, color: "#CBD5E1", zIndex: 2,
+        fontSize: 18, color: "#CBD5E1", zIndex: 2,
       }}>
         2024 期末專案 · 系統分析與設計
       </div>

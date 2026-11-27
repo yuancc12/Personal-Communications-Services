@@ -58,19 +58,19 @@ export const Feature2Scene: React.FC = () => {
         opacity: bannerOpacity, transform: `translateY(${bannerY}px)`,
         boxShadow: "0 4px 30px rgba(8,145,178,0.3)",
       }}>
-        <div style={{ width: 80, height: 80, borderRadius: 24, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>📱</div>
+        <div style={{ width: 96, height: 96, borderRadius: 24, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>📱</div>
         <div>
-          <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>功能 02 · Bulk SMS Delivery</div>
+          <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>功能 02 · Bulk SMS Delivery</div>
           <div style={{ fontSize: 52, fontWeight: 900, color: "#FFF", lineHeight: 1 }}>批次 SMS 傳送</div>
-          <div style={{ fontSize: 22, color: "rgba(255,255,255,0.75)", marginTop: 6 }}>
+          <div style={{ fontSize: 28, color: "rgba(255,255,255,0.75)", marginTop: 6 }}>
             即時追蹤每筆傳送狀態，自動附上投票連結，支援上百位收件人
           </div>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "center", background: "rgba(255,255,255,0.1)", borderRadius: 20, padding: "16px 28px" }}>
           <div style={{ fontSize: 52, fontWeight: 900, color: "#FFF" }}>
-            {Math.min(Math.floor(sentProgress), 9)}<span style={{ fontSize: 26, color: "rgba(255,255,255,0.5)" }}>/12</span>
+            {Math.min(Math.floor(sentProgress), 9)}<span style={{ fontSize: 32, color: "rgba(255,255,255,0.5)" }}>/12</span>
           </div>
-          <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>已傳送</div>
+          <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>已傳送</div>
         </div>
       </div>
 
@@ -80,7 +80,7 @@ export const Feature2Scene: React.FC = () => {
           const colOpacity = interpolate(frame, [15 + ci * 8, 28 + ci * 8], [0, 1], { extrapolateRight: "clamp" });
           return (
             <div key={ci} style={{ flex: 1, opacity: colOpacity, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 15, color: "#9CA3AF", textAlign: "center", marginBottom: 2, fontWeight: 600 }}>批次 {ci + 1}</div>
+              <div style={{ fontSize: 22, color: "#9CA3AF", textAlign: "center", marginBottom: 2, fontWeight: 600 }}>批次 {ci + 1}</div>
               {col.map((contact, ri) => {
                 const status = getStatus(ci, ri);
                 const c = C[status];
@@ -93,15 +93,15 @@ export const Feature2Scene: React.FC = () => {
                     border: `1.5px solid ${status === "sent" ? "#D1FAE5" : "#F3F4F6"}`,
                   }}>
                     <div style={{
-                      width: 46, height: 46, borderRadius: "50%",
+                      width: 56, height: 56, borderRadius: "50%",
                       background: status === "sent" ? "#D1FAE5" : status === "sending" ? "#FEF3C7" : "#F3F4F6",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 18, fontWeight: 700, color: "#374151", flexShrink: 0,
+                      fontSize: 24, fontWeight: 700, color: "#374151", flexShrink: 0,
                     }}>{contact.name[0]}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#1E1B4B" }}>{contact.name}</div>
-                      <div style={{ fontSize: 14, color: "#9CA3AF" }}>{contact.dept}</div>
-                      <div style={{ fontSize: 14, color: c.color, fontWeight: 600, marginTop: 2 }}>{c.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: "#1E1B4B" }}>{contact.name}</div>
+                      <div style={{ fontSize: 18, color: "#9CA3AF" }}>{contact.dept}</div>
+                      <div style={{ fontSize: 18, color: c.color, fontWeight: 600, marginTop: 2 }}>{c.label}</div>
                     </div>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: c.dot, boxShadow: status === "sending" ? `0 0 8px ${c.dot}` : "none" }} />
                   </div>
